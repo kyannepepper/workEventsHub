@@ -97,7 +97,8 @@ export default function AttendeeManagement({ eventId, price = 0 }: AttendeeManag
             { fps: 10, qrbox: 250 },
             async (decodedText) => {
               try {
-                await apiRequest("POST", "/api/attendees/check-in", { 
+                // Just use the decoded text directly without parsing JSON
+                const response = await apiRequest("POST", "/api/attendees/check-in", { 
                   ticketCode: decodedText,
                   eventId: eventId
                 });

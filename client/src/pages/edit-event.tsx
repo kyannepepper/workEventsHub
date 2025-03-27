@@ -61,7 +61,28 @@ export default function EditEvent() {
         <Card>
           <CardContent className="pt-6">
             <EventForm 
-              defaultValues={event} 
+              defaultValues={{
+                title: event.title,
+                description: event.description || undefined,
+                unitNumber: event.unitNumber,
+                revenueCode: event.revenueCode,
+                location: event.location,
+                price: event.price === null ? 0 : event.price,
+                capacity: event.capacity,
+                startTime: event.startTime,
+                endTime: event.endTime,
+                waiver: event.waiver || undefined,
+                images: event.images || [],
+                category: 
+                  (event.category === "Community" || 
+                   event.category === "Education" || 
+                   event.category === "Sports" || 
+                   event.category === "Culture" || 
+                   event.category === "Government" || 
+                   event.category === "Other") 
+                    ? event.category 
+                    : "Other",
+              }}
               onSubmit={handleSubmit}
               isSubmitting={false}
             />

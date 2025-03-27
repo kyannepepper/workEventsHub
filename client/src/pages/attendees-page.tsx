@@ -157,7 +157,11 @@ export default function AttendeesPage() {
                         <TableRow key={attendee.id}>
                           <TableCell className="font-medium">{attendee.name}</TableCell>
                           <TableCell>{attendee.email}</TableCell>
-                          <TableCell>{format(new Date(attendee.registeredAt), "MMM d, yyyy")}</TableCell>
+                          <TableCell>
+                            {attendee.registeredAt 
+                              ? format(new Date(attendee.registeredAt), "MMM d, yyyy")
+                              : "N/A"}
+                          </TableCell>
                           <TableCell>
                             {attendee.checkedIn ? (
                               <Badge className="bg-green-100 text-green-800 hover:bg-green-100">

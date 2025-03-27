@@ -66,11 +66,23 @@ export function AddressAutocomplete({
   useEffect(() => {
     // Load Google Maps script if not already loaded
     if (!window.google) {
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&libraries=places`;
-      script.async = true;
-      script.onload = initAutocomplete;
-      document.head.appendChild(script);
+      try {
+        const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+        if (apiKey) {
+          const script = document.createElement('script');
+          script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+          script.async = true;
+          script.onload = initAutocomplete;
+          script.onerror = () => {
+            console.warn("Failed to load Google Maps API");
+          };
+          document.head.appendChild(script);
+        } else {
+          console.warn("Google Maps API key not provided. Addresses will be manually entered.");
+        }
+      } catch (error) {
+        console.warn("Error loading Google Maps API:", error);
+      }
     } else {
       initAutocomplete();
     }
@@ -79,10 +91,14 @@ export function AddressAutocomplete({
   // Removed old scrolling implementation as we have a better one below
 
   const initAutocomplete = () => {
-    // @ts-ignore - Google Maps API is loaded dynamically
-    if (!window.google?.maps?.places) return;
-    // @ts-ignore - Google Maps API is loaded dynamically
-    autocompleteRef.current = new window.google.maps.places.AutocompleteService();
+    try {
+      // @ts-ignore - Google Maps API is loaded dynamically
+      if (!window.google?.maps?.places) return;
+      // @ts-ignore - Google Maps API is loaded dynamically
+      autocompleteRef.current = new window.google.maps.places.AutocompleteService();
+    } catch (error) {
+      console.warn("Failed to initialize Google Maps autocomplete:", error);
+    }
   };
 
   const handleInputChange = async (search: string) => {
@@ -98,9 +114,9 @@ export function AddressAutocomplete({
         type: 'park' as const
       }));
 
-    // Get Google Places suggestions if search is not empty
+    // Get Google Places suggestions if search is not empty and Google Maps API is available
     let placeSuggestions: Array<{ id: string; value: string; type: 'address' }> = [];
-    if (search && autocompleteRef.current) {
+    if (search && autocompleteRef.current && window.google?.maps?.places) {
       try {
         // @ts-ignore - Google Maps API is loaded dynamically
         const predictions = await new Promise<any[]>(
@@ -116,7 +132,8 @@ export function AddressAutocomplete({
                 if (status === window.google?.maps?.places?.PlacesServiceStatus?.OK && results) {
                   resolve(results);
                 } else {
-                  reject(status);
+                  // If API failed, don't treat as error, just return empty results
+                  resolve([]);
                 }
               }
             );
@@ -131,6 +148,13 @@ export function AddressAutocomplete({
       } catch (error) {
         console.error('Error fetching address suggestions:', error);
       }
+    } else if (search && search.length >= 5) {
+      // Custom fallback: Allow manual address entry if it's at least 5 characters
+      placeSuggestions = [{
+        id: 'custom-address',
+        value: search,
+        type: 'address' as const
+      }];
     }
 
     setSuggestions([...matchingParks, ...placeSuggestions]);

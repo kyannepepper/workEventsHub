@@ -101,15 +101,8 @@ export default function CheckInScanner({ event, onCheckInComplete }: CheckInScan
             { fps: 10, qrbox: 250 },
             async (decodedText) => {
               try {
-                // Try to parse the QR code content
-                let ticketData: any;
-                
-                try {
-                  ticketData = JSON.parse(decodedText);
-                } catch (e) {
-                  // If not JSON, use the raw text
-                  ticketData = decodedText;
-                }
+                // Let's not try to parse the QR code content since it might be a raw string
+                // Just use the decoded text directly
                 
                 // Check in the attendee
                 const response = await apiRequest("POST", "/api/attendees/check-in", { 
