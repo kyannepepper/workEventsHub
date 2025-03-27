@@ -4,6 +4,7 @@ import { InsertEvent } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { DashboardLayout } from "@/components/ui/dashboard-layout";
 
 export default function CreateEvent() {
   const { toast } = useToast();
@@ -28,17 +29,15 @@ export default function CreateEvent() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
+    <DashboardLayout>
       <div className="max-w-2xl mx-auto">
+        <h1 className="text-2xl font-bold mb-6">Create New Event</h1>
         <Card>
-          <CardHeader>
-            <CardTitle>Create New Event</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <EventForm onSubmit={handleSubmit} />
           </CardContent>
         </Card>
       </div>
-    </div>
+    </DashboardLayout>
   );
 }

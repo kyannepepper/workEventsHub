@@ -2,8 +2,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { Event } from "@shared/schema";
 import { Button } from "@/components/ui/button";
-import { Link, useLocation } from "wouter";
-import { Loader2, Plus, Calendar, Edit2, Trash2 } from "lucide-react";
+import { useLocation } from "wouter";
+import { Loader2, Edit2, Trash2, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   AlertDialog,
@@ -19,10 +19,11 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { format } from "date-fns";
-import AttendeeManagement from "@/components/attendee-management";
+import { DashboardLayout } from "@/components/ui/dashboard-layout";
+import { Badge } from "@/components/ui/badge";
 
 export default function HomePage() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [, navigate] = useLocation();
@@ -58,56 +59,53 @@ export default function HomePage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Welcome, {user?.department}
-            </h1>
-            <p className="text-muted-foreground">
-              Manage your Utah State events here
-            </p>
-          </div>
-          <div className="flex gap-4 items-center">
-            <Link href="/events/new">
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Create Event
-              </Button>
-            </Link>
-            <Button variant="outline" onClick={logout}>
-              Logout
-            </Button>
-          </div>
+    <DashboardLayout>
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold">My Events</h1>
+          <Button onClick={() => navigate("/events/new")}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Event
+          </Button>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {events?.map((event) => (
-            <Card key={event.id}>
-              <CardHeader className="items-center justify-between space-y-0 pb-2">
-                {event.images && event.images.length > 0 && (
-                  <div className="w-full h-48 rounded-t-lg overflow-hidden mb-4">
-                    <img
-                      src={event.images[0]}
-                      alt={event.title}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                )}
-              </CardHeader>
-              <CardContent>
-                <CardTitle className="text-lg font-bold truncate mb-3">
+            <Card key={event.id} className="overflow-hidden">
+              {event.images && event.images.length > 0 ? (
+                <div className="w-full h-48 overflow-hidden">
+                  <img
+                    src={event.images[0]}
+                    alt={event.title}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="w-full h-12 bg-slate-100"></div>
+              )}
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg font-bold truncate">
                   {event.title}
                 </CardTitle>
-
+                <div className="flex gap-2 mt-1">
+                  <Badge variant="outline" className="text-xs">
+                    {event.category}
+                  </Badge>
+                  <Badge variant="outline" className="text-xs">
+                    {event.price === 0 ? "Free" : `$${event.price}`}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
                 <div className="space-y-2 text-sm">
                   <div>
                     <span className="font-medium">Date: </span>
@@ -120,23 +118,20 @@ export default function HomePage() {
                   </div>
                   {event.description && (
                     <div>
-                      <span className="font-medium">Description: </span>
-                      <p className="mt-1 text-muted-foreground line-clamp-3">
+                      <p className="text-muted-foreground line-clamp-2">
                         {event.description}
                       </p>
                     </div>
                   )}
                   <div>
                     <span className="font-medium">Location: </span>
-                    {event.location}
-                  </div>
-                  <div>
-                    <span className="font-medium">Price: </span>
-                    {event.price === 0 ? "Free" : `$${event.price}`}
+                    <span className="text-muted-foreground line-clamp-1">
+                      {event.location}
+                    </span>
                   </div>
                   <div>
                     <span className="font-medium">Capacity: </span>
-                    {event.capacity}
+                    {event.capacity} ({event.spotsLeft} spots left)
                   </div>
                   <div className="pt-4 flex gap-2">
                     <Button
@@ -153,9 +148,6 @@ export default function HomePage() {
                     >
                       <Trash2 className="h-4 w-4 mr-1" /> Delete
                     </Button>
-                  </div>
-                  <div className="pt-4">
-                    <AttendeeManagement eventId={event.id} price={event.price} />
                   </div>
                 </div>
               </CardContent>
@@ -189,6 +181,6 @@ export default function HomePage() {
           </AlertDialogContent>
         </AlertDialog>
       </div>
-    </div>
+    </DashboardLayout>
   );
 }
