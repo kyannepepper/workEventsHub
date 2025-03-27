@@ -1,9 +1,13 @@
 import { useState, useEffect, useRef } from "react";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Check, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Input } from "@/components/ui/input";
+
+// Add type definition for Google Maps API
+declare global {
+  interface Window {
+    google?: any;
+  }
+}
 
 // List of Utah State Parks
 const UTAH_STATE_PARKS = [
@@ -55,7 +59,7 @@ export function AddressAutocomplete({
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [suggestions, setSuggestions] = useState<Array<{ id: string; value: string; type: 'park' | 'address' }>>([]);
-  const autocompleteRef = useRef<google.maps.places.AutocompleteService | null>(null);
+  const autocompleteRef = useRef<any>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const firstMatchRef = useRef<HTMLDivElement>(null);
 
@@ -72,19 +76,13 @@ export function AddressAutocomplete({
     }
   }, []);
 
-  useEffect(() => {
-    // Auto-scroll to first match when suggestions update
-    if (firstMatchRef.current && listRef.current) {
-      firstMatchRef.current.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest"
-      });
-    }
-  }, [suggestions, inputValue]);
+  // Removed old scrolling implementation as we have a better one below
 
   const initAutocomplete = () => {
-    if (!google?.maps?.places) return;
-    autocompleteRef.current = new google.maps.places.AutocompleteService();
+    // @ts-ignore - Google Maps API is loaded dynamically
+    if (!window.google?.maps?.places) return;
+    // @ts-ignore - Google Maps API is loaded dynamically
+    autocompleteRef.current = new window.google.maps.places.AutocompleteService();
   };
 
   const handleInputChange = async (search: string) => {
@@ -104,7 +102,8 @@ export function AddressAutocomplete({
     let placeSuggestions: Array<{ id: string; value: string; type: 'address' }> = [];
     if (search && autocompleteRef.current) {
       try {
-        const predictions = await new Promise<google.maps.places.AutocompletePrediction[]>(
+        // @ts-ignore - Google Maps API is loaded dynamically
+        const predictions = await new Promise<any[]>(
           (resolve, reject) => {
             autocompleteRef.current?.getPlacePredictions(
               {
@@ -112,8 +111,9 @@ export function AddressAutocomplete({
                 componentRestrictions: { country: 'us' },
                 types: ['address']
               },
-              (results, status) => {
-                if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+              (results: any, status: any) => {
+                // @ts-ignore - Google Maps API is loaded dynamically
+                if (status === window.google?.maps?.places?.PlacesServiceStatus?.OK && results) {
                   resolve(results);
                 } else {
                   reject(status);
@@ -136,45 +136,94 @@ export function AddressAutocomplete({
     setSuggestions([...matchingParks, ...placeSuggestions]);
   };
 
+  // Find the first match for scroll reference
+  useEffect(() => {
+    if (inputValue.trim()) {
+      // Identify the first matching item (if any)
+      const allSuggestions = [...suggestions];
+      const firstMatchIndex = allSuggestions.findIndex(s => 
+        s.value.toLowerCase().includes(inputValue.toLowerCase())
+      );
+      
+      // If there's a match and a list to scroll
+      if (firstMatchIndex >= 0 && listRef.current) {
+        // Set timeout to allow rendering to complete
+        setTimeout(() => {
+          const items = listRef.current?.querySelectorAll('[cmdk-item]');
+          if (items && items[firstMatchIndex]) {
+            items[firstMatchIndex].scrollIntoView({
+              behavior: "smooth",
+              block: "nearest"
+            });
+          }
+        }, 50);
+      }
+    }
+  }, [inputValue, suggestions]);
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <div className="relative w-full">
-          <Input
-            value={value}
-            placeholder={placeholder}
-            className="w-full pr-10"
-            onClick={() => setOpen(true)}
-            readOnly
-          />
-          <MapPin className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        </div>
-      </PopoverTrigger>
-      <PopoverContent className="w-full p-0" align="start">
-        <Command shouldFilter={false}>
-          <CommandInput
+    <div className="relative w-full">
+      <div 
+        className={cn(
+          "flex items-center rounded-md border border-input bg-background w-full", 
+          open && "ring-2 ring-ring ring-offset-background"
+        )}
+        onClick={() => setOpen(true)}
+      >
+        <MapPin className="ml-3 h-4 w-4 text-muted-foreground flex-shrink-0" />
+        
+        {open ? (
+          <input
             placeholder="Search state parks or enter address..."
             value={inputValue}
-            onValueChange={handleInputChange}
-            className="border-none focus:ring-0"
+            onChange={(e) => handleInputChange(e.target.value)}
+            className="flex h-10 w-full rounded-md bg-transparent px-3 py-2 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            autoFocus
           />
-          <CommandEmpty>No location found.</CommandEmpty>
-          <div ref={listRef} className="max-h-[300px] overflow-y-auto">
-            {suggestions.length > 0 && (
-              <>
-                {suggestions.some(s => s.type === 'park') && (
-                  <CommandGroup heading="Utah State Parks" className="px-2">
+        ) : (
+          <input
+            value={value}
+            placeholder={placeholder}
+            className="flex h-10 w-full rounded-md bg-transparent px-3 py-2 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            readOnly
+            onClick={() => setOpen(true)}
+          />
+        )}
+      </div>
+
+      {open && (
+        <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-10 bg-popover shadow-md rounded-md border">
+          <div className="p-1">
+            {!suggestions.length && (
+              <div className="py-6 text-center text-sm text-muted-foreground">
+                No location found
+              </div>
+            )}
+            <div ref={listRef} className="max-h-[300px] overflow-y-auto">
+              {suggestions.length > 0 && (
+                <>
+                  {suggestions.some(s => s.type === 'park') && (
+                    <div className="px-2 pt-1 text-xs font-semibold text-muted-foreground">
+                      Utah State Parks
+                    </div>
+                  )}
+                  <div className="mt-1">
                     {suggestions
                       .filter(s => s.type === 'park')
                       .map((suggestion, index) => (
-                        <CommandItem
+                        <div
                           key={suggestion.id}
-                          ref={index === 0 ? firstMatchRef : null}
-                          onSelect={() => {
+                          cmdk-item=""
+                          role="option"
+                          onClick={() => {
                             onChange(suggestion.value);
                             setOpen(false);
                           }}
-                          className="cursor-pointer"
+                          className={cn(
+                            "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none",
+                            "hover:bg-accent hover:text-accent-foreground",
+                            value === suggestion.value && "bg-accent text-accent-foreground"
+                          )}
                         >
                           <Check
                             className={cn(
@@ -183,22 +232,32 @@ export function AddressAutocomplete({
                             )}
                           />
                           {suggestion.value}
-                        </CommandItem>
+                        </div>
                       ))}
-                  </CommandGroup>
-                )}
-                {suggestions.some(s => s.type === 'address') && (
-                  <CommandGroup heading="Addresses" className="px-2">
+                  </div>
+                  
+                  {suggestions.some(s => s.type === 'address') && (
+                    <div className="mt-1 px-2 pt-1 text-xs font-semibold text-muted-foreground">
+                      Addresses
+                    </div>
+                  )}
+                  <div className="mt-1">
                     {suggestions
                       .filter(s => s.type === 'address')
                       .map((suggestion) => (
-                        <CommandItem
+                        <div
                           key={suggestion.id}
-                          onSelect={() => {
+                          cmdk-item=""
+                          role="option"
+                          onClick={() => {
                             onChange(suggestion.value);
                             setOpen(false);
                           }}
-                          className="cursor-pointer"
+                          className={cn(
+                            "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none",
+                            "hover:bg-accent hover:text-accent-foreground",
+                            value === suggestion.value && "bg-accent text-accent-foreground"
+                          )}
                         >
                           <Check
                             className={cn(
@@ -207,15 +266,15 @@ export function AddressAutocomplete({
                             )}
                           />
                           {suggestion.value}
-                        </CommandItem>
+                        </div>
                       ))}
-                  </CommandGroup>
-                )}
-              </>
-            )}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
-        </Command>
-      </PopoverContent>
-    </Popover>
+        </div>
+      )}
+    </div>
   );
 }

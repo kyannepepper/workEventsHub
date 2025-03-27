@@ -74,6 +74,22 @@ export default function AttendeeManagement({ eventId, price = 0 }: AttendeeManag
 
     const initializeScanner = async () => {
       if (isScanning && !isInitializing) {
+        // Add a small delay to ensure the DOM element is properly rendered
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Check if the reader element exists before initializing
+        const readerElement = document.getElementById("reader");
+        if (!readerElement) {
+          console.error("Reader element not found");
+          setIsScanning(false);
+          toast({
+            title: "Scanner Error",
+            description: "Could not initialize QR scanner. Please try again.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
         try {
           qrScanner = new Html5Qrcode("reader");
           await qrScanner.start(
@@ -131,7 +147,7 @@ export default function AttendeeManagement({ eventId, price = 0 }: AttendeeManag
         qrScanner.stop().catch(console.error);
       }
     };
-  }, [isScanning, isInitializing, eventId]);
+  }, [isScanning, isInitializing, eventId, toast]);
 
   const stopScanning = async () => {
     setIsScanning(false);
