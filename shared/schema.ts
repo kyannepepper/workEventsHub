@@ -69,7 +69,7 @@ export const insertEventSchema = createInsertSchema(events)
     spotsLeft: true,
   });
 
-export const attendees = pgTable("attendees", {
+export const registrations = pgTable("registrations", {
   id: serial("id").primaryKey(),
   eventId: integer("event_id").notNull(),
   name: text("name").notNull(),
@@ -77,15 +77,19 @@ export const attendees = pgTable("attendees", {
   registeredAt: timestamp("registered_at").notNull().defaultNow(),
   checkedIn: boolean("checked_in").notNull().default(false),
   checkedInAt: timestamp("checked_in_at"),
+  waiverSigned: boolean("waiver_signed").notNull().default(false),
+  waiverSignedAt: timestamp("waiver_signed_at"),
   ticketCode: text("ticket_code").notNull().unique(), // For QR code text identification
   qrCodeData: text("qr_code_data"), // For storing Base64-encoded QR codes
 });
 
-export const insertAttendeeSchema = createInsertSchema(attendees)
+export const insertRegistrationSchema = createInsertSchema(registrations)
   .omit({ 
     id: true,
     checkedIn: true,
     checkedInAt: true,
+    waiverSigned: true,
+    waiverSignedAt: true,
     ticketCode: true, // Generated server-side
     qrCodeData: true  // Generated or imported server-side
   });
