@@ -158,11 +158,6 @@ export default function AttendeesPage() {
                           <TableCell className="font-medium">{registration.name}</TableCell>
                           <TableCell>{registration.email}</TableCell>
                           <TableCell>
-                            {registration.createdAt 
-                              ? format(new Date(registration.createdAt), "MMM d, yyyy")
-                              : "N/A"}
-                          </TableCell>
-                          <TableCell>
                             {registration.waiverSigned ? (
                               <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
                                 <Check className="h-3 w-3 mr-1" />
