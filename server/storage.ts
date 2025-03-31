@@ -55,10 +55,11 @@ export interface IStorage {
   uploadEventImages(files: Express.Multer.File[]): Promise<string[]>;
   sessionStore: session.Store;
   // Attendee methods
-  createAttendee(attendee: InsertAttendee): Promise<Attendee>;
+  createAttendee(attendee: InsertAttendee, qrCodeData?: string): Promise<Attendee>;
   getEventAttendees(eventId: number): Promise<Attendee[]>;
   checkInAttendee(ticketCode: string): Promise<Attendee>;
   getAttendeeByTicketCode(ticketCode: string): Promise<Attendee | undefined>;
+  getAttendeeByQrCodeData?(qrCodeData: string): Promise<Attendee | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -101,10 +102,7 @@ export class DatabaseStorage implements IStorage {
       spotsLeft: event.capacity,
     }).returning();
 
-    log(`Created event ${newEvent.id} with values:`, {
-      price: newEvent.price,
-      capacity: newEvent.capacity
-    });
+    log(`Created event ${newEvent.id} with values: price=${newEvent.price}, capacity=${newEvent.capacity}`, "storage");
 
     return newEvent;
   }
@@ -131,7 +129,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateEvent(id: number, eventUpdate: Partial<InsertEvent>): Promise<Event> {
     log(`Updating event ${id}`, "storage");
-    log(`Update payload:`, eventUpdate);
+    log(`Update payload for event ${id}`, "storage");
 
     const [updatedEvent] = await db
       .update(events)
@@ -139,7 +137,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(events.id, id))
       .returning();
 
-    log(`Updated event ${id}:`, updatedEvent);
+    log(`Updated event ${id}`, "storage");
     return updatedEvent;
   }
 
@@ -156,15 +154,16 @@ export class DatabaseStorage implements IStorage {
     return urls;
   }
 
-  async createAttendee(attendee: InsertAttendee): Promise<Attendee> {
+  async createAttendee(attendee: InsertAttendee, qrCodeData?: string): Promise<Attendee> {
     log(`Creating attendee for event ${attendee.eventId}`, "storage");
 
-    // Generate a unique ticket code
+    // Generate a unique ticket code if one is not provided through the QR code
     const ticketCode = crypto.randomBytes(16).toString('hex');
 
     const [newAttendee] = await db.insert(attendees).values({
       ...attendee,
       ticketCode,
+      qrCodeData: qrCodeData || null, // Store Base64 QR code if provided
     }).returning();
 
     log(`Created attendee ${newAttendee.id}`, "storage");
@@ -210,6 +209,17 @@ export class DatabaseStorage implements IStorage {
       .where(eq(attendees.ticketCode, ticketCode));
 
     log(`Attendee ${attendee ? 'found' : 'not found'} for ticket code ${ticketCode}`, "storage");
+    return attendee;
+  }
+
+  async getAttendeeByQrCodeData(qrCodeData: string): Promise<Attendee | undefined> {
+    log(`Getting attendee by QR code data`, "storage");
+    const [attendee] = await db
+      .select()
+      .from(attendees)
+      .where(eq(attendees.qrCodeData, qrCodeData));
+
+    log(`Attendee ${attendee ? 'found' : 'not found'} for QR code data`, "storage");
     return attendee;
   }
 }

@@ -5,7 +5,17 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Attendee } from "@shared/schema";
-import { Check, UserCheck, DollarSign, Users, Camera, X, Loader2 } from "lucide-react";
+import { 
+  Check, 
+  UserCheck, 
+  DollarSign, 
+  Users, 
+  Camera, 
+  X, 
+  Loader2,
+  ChevronLeft,
+  ChevronRight
+} from "lucide-react";
 
 interface AttendeeManagementProps {
   eventId: number;
@@ -16,10 +26,13 @@ export default function AttendeeManagement({ eventId, price = 0 }: AttendeeManag
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [attendeesPerPage] = useState(10);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchAttendees();
+    setCurrentPage(1); // Reset to first page when event changes
   }, [eventId]);
 
   const fetchAttendees = async () => {
@@ -97,9 +110,34 @@ export default function AttendeeManagement({ eventId, price = 0 }: AttendeeManag
             { fps: 10, qrbox: 250 },
             async (decodedText) => {
               try {
-                // Just use the decoded text directly without parsing JSON
+                // The QR code could be either:
+                // 1. A ticket code (string)
+                // 2. A Base64-encoded QR code image
+                // 3. Some JSON data that contains a ticket code
+                
+                let ticketCode = decodedText;
+                let qrCodeData = null;
+                
+                // Check if it's a Base64 image
+                if (decodedText.startsWith("data:image")) {
+                  qrCodeData = decodedText;
+                  // We'll send the QR image data to the server for verification
+                } else {
+                  // Try to parse it as JSON in case it's a JSON object
+                  try {
+                    const parsedData = JSON.parse(decodedText);
+                    // Extract ticket code from parsed data if available
+                    if (parsedData.ticketCode) {
+                      ticketCode = parsedData.ticketCode;
+                    }
+                  } catch (e) {
+                    // Not JSON, use as raw ticket code
+                  }
+                }
+                
                 const response = await apiRequest("POST", "/api/attendees/check-in", { 
-                  ticketCode: decodedText,
+                  ticketCode,
+                  qrCodeData,
                   eventId: eventId
                 });
                 toast({
@@ -109,6 +147,7 @@ export default function AttendeeManagement({ eventId, price = 0 }: AttendeeManag
                 await qrScanner?.stop();
                 setIsScanning(false);
                 fetchAttendees();
+                setCurrentPage(1); // Reset to first page to show checked in attendee
               } catch (error) {
                 let errorMessage = "Invalid ticket code";
                 if (error instanceof Error && error.message.includes("different event")) {
@@ -154,6 +193,13 @@ export default function AttendeeManagement({ eventId, price = 0 }: AttendeeManag
     setIsScanning(false);
   };
 
+  // Pagination calculation
+  const indexOfLastAttendee = currentPage * attendeesPerPage;
+  const indexOfFirstAttendee = indexOfLastAttendee - attendeesPerPage;
+  const currentAttendees = attendees.slice(indexOfFirstAttendee, indexOfLastAttendee);
+  const totalPages = Math.ceil(attendees.length / attendeesPerPage);
+  
+  // Stats calculation
   const totalRevenue = (price || 0) * attendees.length;
   const checkedInCount = attendees.filter(a => a.checkedIn).length;
 
@@ -221,21 +267,42 @@ export default function AttendeeManagement({ eventId, price = 0 }: AttendeeManag
               </div>
             )}
             <div className="divide-y">
-              {attendees.map((attendee) => (
+              {currentAttendees.map((attendee) => (
                 <div
                   key={attendee.id}
                   className="py-3 flex items-center justify-between"
                 >
-                  <div>
-                    <div className="font-medium">{attendee.name}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {attendee.email}
+                  <div className="flex items-center gap-3">
+                    {attendee.qrCodeData && (
+                      <div className="h-16 w-16 flex-shrink-0">
+                        <img 
+                          src={attendee.qrCodeData} 
+                          alt={`QR code for ${attendee.name}`}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <div className="font-medium">{attendee.name}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {attendee.email}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Ticket: {attendee.ticketCode.substring(0, 8)}...
+                      </div>
                     </div>
                   </div>
                   {attendee.checkedIn ? (
                     <div className="flex items-center text-green-600">
                       <Check className="h-4 w-4 mr-1" />
-                      Checked In
+                      <span>
+                        Checked In
+                        {attendee.checkedInAt && (
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(attendee.checkedInAt).toLocaleString()}
+                          </div>
+                        )}
+                      </span>
                     </div>
                   ) : (
                     <div className="text-sm text-muted-foreground">
@@ -245,6 +312,37 @@ export default function AttendeeManagement({ eventId, price = 0 }: AttendeeManag
                 </div>
               ))}
             </div>
+            
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex justify-center mt-6">
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    <span className="sr-only">Previous Page</span>
+                  </Button>
+                  
+                  <div className="text-sm">
+                    Page {currentPage} of {totalPages}
+                  </div>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                    <span className="sr-only">Next Page</span>
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

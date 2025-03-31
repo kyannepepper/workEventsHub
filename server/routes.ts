@@ -38,8 +38,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         throw new Error(`Unsplash API error: ${response.statusText}`);
       }
 
-      const data = await response.json();
-      const images = data.results.map((photo: any) => ({
+      interface UnsplashPhoto {
+        urls: { regular: string; thumb: string; };
+        user: { name: string; links: { html: string; } };
+      }
+      
+      interface UnsplashResponse {
+        results: UnsplashPhoto[];
+      }
+      
+      const data = await response.json() as UnsplashResponse;
+      
+      const images = data.results.map((photo: UnsplashPhoto) => ({
         url: photo.urls.regular,
         thumb: photo.urls.thumb,
         credit: {
@@ -175,8 +185,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json(parsed.error);
     }
 
-    const attendee = await storage.createAttendee(parsed.data);
-    res.status(201).json(attendee);
+    try {
+      // Generate QR code data for the attendee (using name and email as identifier)
+      const qrData = { 
+        name: parsed.data.name,
+        email: parsed.data.email,
+        eventId,
+        timestamp: new Date().toISOString()
+      };
+      const qrCodeData = await QRCode.toDataURL(JSON.stringify(qrData));
+      
+      // Create the attendee with the QR code data
+      const attendee = await storage.createAttendee(parsed.data, qrCodeData);
+      res.status(201).json(attendee);
+    } catch (error) {
+      log(`Error creating attendee: ${error}`, "routes");
+      res.status(500).json({ error: "Failed to create attendee" });
+    }
   });
 
   app.get("/api/events/:eventId/attendees", async (req, res) => {
@@ -195,16 +220,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/attendees/check-in", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
-    const { ticketCode, eventId } = req.body;
-    if (!ticketCode || !eventId) {
-      return res.status(400).json({ error: "Ticket code and event ID are required" });
+    const { ticketCode, qrCodeData, eventId } = req.body;
+    if ((!ticketCode && !qrCodeData) || !eventId) {
+      return res.status(400).json({ error: "Either ticket code or QR code data, and event ID are required" });
     }
 
     try {
-      // First get the attendee to verify the event
-      const attendee = await storage.getAttendeeByTicketCode(ticketCode);
+      let attendee;
+      
+      // First try to find attendee by ticket code
+      if (ticketCode) {
+        attendee = await storage.getAttendeeByTicketCode(ticketCode);
+      }
+      
+      // If not found and we have QR code data, try that
+      if (!attendee && qrCodeData) {
+        attendee = await storage.getAttendeeByQrCodeData(qrCodeData);
+      }
+      
       if (!attendee) {
-        return res.status(400).json({ error: "Invalid ticket code" });
+        return res.status(400).json({ error: "Invalid ticket code or QR code" });
       }
 
       // Verify this ticket is for this event
@@ -218,10 +253,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Unauthorized to check in attendees for this event" });
       }
 
-      const updatedAttendee = await storage.checkInAttendee(ticketCode);
+      const updatedAttendee = await storage.checkInAttendee(attendee.ticketCode);
       res.json(updatedAttendee);
     } catch (error) {
-      res.status(400).json({ error: "Invalid ticket code" });
+      log(`Check-in error: ${error}`, "routes");
+      res.status(400).json({ error: "Invalid ticket information" });
     }
   });
 

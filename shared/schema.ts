@@ -77,7 +77,8 @@ export const attendees = pgTable("attendees", {
   registeredAt: timestamp("registered_at").notNull().defaultNow(),
   checkedIn: boolean("checked_in").notNull().default(false),
   checkedInAt: timestamp("checked_in_at"),
-  ticketCode: text("ticket_code").notNull().unique(), // For QR code
+  ticketCode: text("ticket_code").notNull().unique(), // For QR code text identification
+  qrCodeData: text("qr_code_data"), // For storing Base64-encoded QR codes
 });
 
 export const insertAttendeeSchema = createInsertSchema(attendees)
@@ -85,7 +86,8 @@ export const insertAttendeeSchema = createInsertSchema(attendees)
     id: true,
     checkedIn: true,
     checkedInAt: true,
-    ticketCode: true // Generated server-side
+    ticketCode: true, // Generated server-side
+    qrCodeData: true  // Generated or imported server-side
   });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
