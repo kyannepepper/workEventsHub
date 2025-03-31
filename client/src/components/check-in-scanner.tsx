@@ -3,7 +3,7 @@ import { Html5Qrcode } from "html5-qrcode";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Attendee, Event } from "@shared/schema";
+import { Registration, Event } from "@shared/schema";
 import { 
   Camera, 
   X, 
@@ -25,7 +25,7 @@ export default function CheckInScanner({ event, onCheckInComplete }: CheckInScan
   const [scanResult, setScanResult] = useState<{
     success: boolean;
     message: string;
-    attendee?: Attendee;
+    registration?: Registration;
   } | null>(null);
   const { toast } = useToast();
 
@@ -102,46 +102,42 @@ export default function CheckInScanner({ event, onCheckInComplete }: CheckInScan
             async (decodedText) => {
               try {
                 // The QR code could be either:
-                // 1. A ticket code (string)
+                // 1. A QR code (string)
                 // 2. A Base64-encoded QR code image
-                // 3. Some JSON data that contains a ticket code
+                // 3. Some JSON data that contains a QR code
                 
-                let ticketCode = decodedText;
-                let qrCodeData = null;
+                let qrCode = decodedText;
                 
                 // Check if it's a Base64 image
                 if (decodedText.startsWith("data:image")) {
-                  qrCodeData = decodedText;
+                  qrCode = decodedText;
                   // We'll send the QR image data to the server for verification
                 } else {
                   // Try to parse it as JSON in case it's a JSON object
                   try {
                     const parsedData = JSON.parse(decodedText);
-                    // Extract ticket code from parsed data if available
-                    if (parsedData.ticketCode) {
-                      ticketCode = parsedData.ticketCode;
-                    }
+                    // If it's a parsed JSON object, use it as is
+                    qrCode = decodedText;
                   } catch (e) {
-                    // Not JSON, use as raw ticket code
+                    // Not JSON, use as raw QR code
                   }
                 }
                 
-                // Check in the attendee
-                const response = await apiRequest("POST", "/api/attendees/check-in", { 
-                  ticketCode,
-                  qrCodeData,
+                // Check in the registration
+                const response = await apiRequest("POST", "/api/registrations/check-in", { 
+                  qrCode,
                   eventId: event.id
                 });
                 
-                const attendee = await response.json();
+                const registration = await response.json();
                 
                 // Stop the scanner and show success message
                 await qrScanner?.stop();
                 setIsScanning(false);
                 setScanResult({
                   success: true,
-                  message: "Attendee checked in successfully!",
-                  attendee
+                  message: "Registration checked in successfully!",
+                  registration
                 });
                 
                 onCheckInComplete();
@@ -238,13 +234,13 @@ export default function CheckInScanner({ event, onCheckInComplete }: CheckInScan
                       <p className="text-sm mt-1">
                         {scanResult.message}
                       </p>
-                      {scanResult.attendee && (
+                      {scanResult.registration && (
                         <div className="mt-2">
-                          <p className="text-sm font-medium">{scanResult.attendee.name}</p>
-                          <p className="text-xs text-muted-foreground">{scanResult.attendee.email}</p>
+                          <p className="text-sm font-medium">{scanResult.registration.name}</p>
+                          <p className="text-xs text-muted-foreground">{scanResult.registration.email}</p>
                           <div className="mt-1">
                             <Badge variant="outline" className="text-xs">
-                              {new Date(scanResult.attendee.registeredAt).toLocaleDateString()}
+                              {new Date(scanResult.registration.createdAt).toLocaleDateString()}
                             </Badge>
                           </div>
                         </div>

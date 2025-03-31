@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage, upload } from "./storage";
-import { insertEventSchema, insertAttendeeSchema } from "@shared/schema";
+import { insertEventSchema, insertRegistrationSchema } from "@shared/schema";
 import { log } from "./vite";
 import fetch from "node-fetch";
 import QRCode from "qrcode";
@@ -118,11 +118,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     log(`Fetching events for user ID: ${req.user.id}`, "routes");
     const events = await storage.getEventsByUser(req.user.id);
     
-    // Calculate correct spotsLeft for each event based on current attendees
+    // Calculate correct spotsLeft for each event based on current registrations
     for (const event of events) {
-      const attendees = await storage.getEventAttendees(event.id);
-      // Update spotsLeft: capacity minus attendees, with minimum of 0
-      event.spotsLeft = Math.max(0, event.capacity - attendees.length);
+      const registrations = await storage.getEventRegistrations(event.id);
+      // Update spotsLeft: capacity minus registrations, with minimum of 0
+      event.spotsLeft = Math.max(0, event.capacity - registrations.length);
     }
     
     res.json(events);
@@ -134,9 +134,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!event) return res.sendStatus(404);
     if (event.createdBy !== req.user.id) return res.sendStatus(403);
     
-    // Calculate correct spotsLeft for this event based on current attendees
-    const attendees = await storage.getEventAttendees(event.id);
-    event.spotsLeft = Math.max(0, event.capacity - attendees.length);
+    // Calculate correct spotsLeft for this event based on current registrations
+    const registrations = await storage.getEventRegistrations(event.id);
+    event.spotsLeft = Math.max(0, event.capacity - registrations.length);
     
     res.json(event);
   });
@@ -179,8 +179,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.sendStatus(200);
   });
 
-  // Attendee routes
-  app.post("/api/events/:eventId/attendees", async (req, res) => {
+  // Registration routes
+  app.post("/api/events/:eventId/registrations", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
     const eventId = parseInt(req.params.eventId, 10);
@@ -189,7 +189,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!event) return res.sendStatus(404);
     if (event.createdBy !== req.user.id) return res.sendStatus(403);
 
-    const parsed = insertAttendeeSchema.safeParse({
+    const parsed = insertRegistrationSchema.safeParse({
       ...req.body,
       eventId,
     });
@@ -199,30 +199,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      // Generate QR code data for the attendee (using name and email as identifier)
+      // Generate QR code data for the registration (using name and email as identifier)
       const qrData = { 
         name: parsed.data.name,
         email: parsed.data.email,
         eventId,
         timestamp: new Date().toISOString()
       };
-      const qrCodeData = await QRCode.toDataURL(JSON.stringify(qrData));
+      const qrCode = await QRCode.toDataURL(JSON.stringify(qrData));
       
-      // Create the attendee with the QR code data
-      const attendee = await storage.createAttendee(parsed.data, qrCodeData);
+      // Create the registration with the QR code
+      const registration = await storage.createRegistration(parsed.data, qrCode);
       
       // Update the event's spots left
       // We don't need to manually update spotsLeft in the database
       // because it will be recalculated in real-time when the event is fetched
       
-      res.status(201).json(attendee);
+      res.status(201).json(registration);
     } catch (error) {
-      log(`Error creating attendee: ${error}`, "routes");
-      res.status(500).json({ error: "Failed to create attendee" });
+      log(`Error creating registration: ${error}`, "routes");
+      res.status(500).json({ error: "Failed to create registration" });
     }
   });
 
-  app.get("/api/events/:eventId/attendees", async (req, res) => {
+  app.get("/api/events/:eventId/registrations", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
     const eventId = parseInt(req.params.eventId, 10);
@@ -231,59 +231,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!event) return res.sendStatus(404);
     if (event.createdBy !== req.user.id) return res.sendStatus(403);
 
-    const attendees = await storage.getEventAttendees(eventId);
-    res.json(attendees);
+    const registrations = await storage.getEventRegistrations(eventId);
+    res.json(registrations);
   });
 
-  app.post("/api/attendees/check-in", async (req, res) => {
+  app.post("/api/registrations/check-in", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
-    const { ticketCode, qrCodeData, eventId } = req.body;
-    if ((!ticketCode && !qrCodeData) || !eventId) {
-      return res.status(400).json({ error: "Either ticket code or QR code data, and event ID are required" });
+    const { qrCode, eventId } = req.body;
+    if (!qrCode || !eventId) {
+      return res.status(400).json({ error: "QR code and event ID are required" });
     }
 
     try {
-      let attendee;
+      const registration = await storage.getRegistrationByQrCode(qrCode);
       
-      // First try to find attendee by ticket code
-      if (ticketCode) {
-        attendee = await storage.getAttendeeByTicketCode(ticketCode);
-      }
-      
-      // If not found and we have QR code data, try that
-      if (!attendee && qrCodeData) {
-        attendee = await storage.getAttendeeByQrCodeData(qrCodeData);
-      }
-      
-      if (!attendee) {
-        return res.status(400).json({ error: "Invalid ticket code or QR code" });
+      if (!registration) {
+        return res.status(400).json({ error: "Invalid QR code" });
       }
 
-      // Verify this ticket is for this event
-      if (attendee.eventId !== parseInt(eventId)) {
-        return res.status(400).json({ error: "This ticket is for a different event" });
+      // Verify this registration is for this event
+      if (registration.eventId !== parseInt(eventId)) {
+        return res.status(400).json({ error: "This registration is for a different event" });
       }
 
       // Verify the user has access to this event
-      const event = await storage.getEvent(attendee.eventId);
+      const event = await storage.getEvent(registration.eventId);
       if (!event || event.createdBy !== req.user.id) {
-        return res.status(403).json({ error: "Unauthorized to check in attendees for this event" });
+        return res.status(403).json({ error: "Unauthorized to check in registrations for this event" });
       }
 
-      const updatedAttendee = await storage.checkInAttendee(attendee.ticketCode);
-      res.json(updatedAttendee);
+      if (!registration.qrCode) {
+        return res.status(400).json({ error: "Invalid QR code" });
+      }
+      const updatedRegistration = await storage.checkInRegistration(registration.qrCode);
+      res.json(updatedRegistration);
     } catch (error) {
       log(`Check-in error: ${error}`, "routes");
-      res.status(400).json({ error: "Invalid ticket information" });
+      res.status(400).json({ error: "Invalid registration information" });
     }
   });
 
-  app.get("/api/attendees/:ticketCode/qr", async (req, res) => {
+  app.get("/api/registrations/:qrCode/qr", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
     try {
-      const qrCode = await QRCode.toDataURL(req.params.ticketCode);
+      const qrCode = await QRCode.toDataURL(req.params.qrCode);
       res.json({ qrCode });
     } catch (error) {
       res.status(500).json({ error: "Failed to generate QR code" });

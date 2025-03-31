@@ -1,4 +1,4 @@
-import { User, Event, InsertUser, InsertEvent, users, events, Attendee, InsertAttendee, attendees } from "@shared/schema";
+import { User, Event, InsertUser, InsertEvent, users, events, Registration, InsertRegistration, registrations } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import session from "express-session";
@@ -54,12 +54,11 @@ export interface IStorage {
   deleteEvent(id: number): Promise<void>;
   uploadEventImages(files: Express.Multer.File[]): Promise<string[]>;
   sessionStore: session.Store;
-  // Attendee methods
-  createAttendee(attendee: InsertAttendee, qrCodeData?: string): Promise<Attendee>;
-  getEventAttendees(eventId: number): Promise<Attendee[]>;
-  checkInAttendee(ticketCode: string): Promise<Attendee>;
-  getAttendeeByTicketCode(ticketCode: string): Promise<Attendee | undefined>;
-  getAttendeeByQrCodeData?(qrCodeData: string): Promise<Attendee | undefined>;
+  // Registration methods
+  createRegistration(registration: InsertRegistration, qrCode?: string): Promise<Registration>;
+  getEventRegistrations(eventId: number): Promise<Registration[]>;
+  checkInRegistration(qrCode: string): Promise<Registration>;
+  getRegistrationByQrCode(qrCode: string): Promise<Registration | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -155,73 +154,60 @@ export class DatabaseStorage implements IStorage {
     return urls;
   }
 
-  async createAttendee(attendee: InsertAttendee, qrCodeData?: string): Promise<Attendee> {
-    log(`Creating attendee for event ${attendee.eventId}`, "storage");
+  async createRegistration(registration: InsertRegistration, qrCode?: string): Promise<Registration> {
+    log(`Creating registration for event ${registration.eventId}`, "storage");
 
-    // Generate a unique ticket code if one is not provided through the QR code
-    const ticketCode = crypto.randomBytes(16).toString('hex');
+    const qrCodeValue = qrCode || crypto.randomBytes(16).toString('hex');
 
-    const [newAttendee] = await db.insert(attendees).values({
-      ...attendee,
-      ticketCode,
-      qrCodeData: qrCodeData || null, // Store Base64 QR code if provided
+    const [newRegistration] = await db.insert(registrations).values({
+      ...registration,
+      qrCode: qrCodeValue
     }).returning();
 
-    log(`Created attendee ${newAttendee.id}`, "storage");
-    return newAttendee;
+    log(`Created registration ${newRegistration.id}`, "storage");
+    return newRegistration;
   }
 
-  async getEventAttendees(eventId: number): Promise<Attendee[]> {
-    log(`Getting attendees for event ${eventId}`, "storage");
-    const eventAttendees = await db
+  async getEventRegistrations(eventId: number): Promise<Registration[]> {
+    log(`Getting registrations for event ${eventId}`, "storage");
+    const eventRegistrations = await db
       .select()
-      .from(attendees)
-      .where(eq(attendees.eventId, eventId));
+      .from(registrations)
+      .where(eq(registrations.eventId, eventId));
 
-    log(`Found ${eventAttendees.length} attendees for event ${eventId}`, "storage");
-    return eventAttendees;
+    log(`Found ${eventRegistrations.length} registrations for event ${eventId}`, "storage");
+    return eventRegistrations;
   }
 
-  async checkInAttendee(ticketCode: string): Promise<Attendee> {
-    log(`Checking in attendee with ticket code ${ticketCode}`, "storage");
+  async checkInRegistration(qrCode: string): Promise<Registration> {
+    log(`Checking in registration with QR code ${qrCode}`, "storage");
 
-    const [updatedAttendee] = await db
-      .update(attendees)
+    const [updatedRegistration] = await db
+      .update(registrations)
       .set({ 
         checkedIn: true,
         checkedInAt: new Date()
       })
-      .where(eq(attendees.ticketCode, ticketCode))
+      .where(eq(registrations.qrCode, qrCode))
       .returning();
 
-    if (!updatedAttendee) {
-      throw new Error("Invalid ticket code");
+    if (!updatedRegistration) {
+      throw new Error("Invalid QR code");
     }
 
-    log(`Checked in attendee ${updatedAttendee.id}`, "storage");
-    return updatedAttendee;
+    log(`Checked in registration ${updatedRegistration.id}`, "storage");
+    return updatedRegistration;
   }
 
-  async getAttendeeByTicketCode(ticketCode: string): Promise<Attendee | undefined> {
-    log(`Getting attendee by ticket code ${ticketCode}`, "storage");
-    const [attendee] = await db
+  async getRegistrationByQrCode(qrCode: string): Promise<Registration | undefined> {
+    log(`Getting registration by QR code ${qrCode}`, "storage");
+    const [registration] = await db
       .select()
-      .from(attendees)
-      .where(eq(attendees.ticketCode, ticketCode));
+      .from(registrations)
+      .where(eq(registrations.qrCode, qrCode));
 
-    log(`Attendee ${attendee ? 'found' : 'not found'} for ticket code ${ticketCode}`, "storage");
-    return attendee;
-  }
-
-  async getAttendeeByQrCodeData(qrCodeData: string): Promise<Attendee | undefined> {
-    log(`Getting attendee by QR code data`, "storage");
-    const [attendee] = await db
-      .select()
-      .from(attendees)
-      .where(eq(attendees.qrCodeData, qrCodeData));
-
-    log(`Attendee ${attendee ? 'found' : 'not found'} for QR code data`, "storage");
-    return attendee;
+    log(`Registration ${registration ? 'found' : 'not found'} for QR code ${qrCode}`, "storage");
+    return registration;
   }
 }
 

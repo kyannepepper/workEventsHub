@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Attendee } from "@shared/schema";
+import { Registration } from "@shared/schema";
 import { 
   Check, 
   UserCheck, 
@@ -14,7 +14,8 @@ import {
   X, 
   Loader2,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  FileCheck
 } from "lucide-react";
 
 interface AttendeeManagementProps {
@@ -23,7 +24,7 @@ interface AttendeeManagementProps {
 }
 
 export default function AttendeeManagement({ eventId, price = 0 }: AttendeeManagementProps) {
-  const [attendees, setAttendees] = useState<Attendee[]>([]);
+  const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -31,19 +32,19 @@ export default function AttendeeManagement({ eventId, price = 0 }: AttendeeManag
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchAttendees();
+    fetchRegistrations();
     setCurrentPage(1); // Reset to first page when event changes
   }, [eventId]);
 
-  const fetchAttendees = async () => {
+  const fetchRegistrations = async () => {
     try {
-      const response = await apiRequest("GET", `/api/events/${eventId}/attendees`);
+      const response = await apiRequest("GET", `/api/events/${eventId}/registrations`);
       const data = await response.json();
-      setAttendees(data);
+      setRegistrations(data);
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to fetch attendees",
+        description: "Failed to fetch registrations",
         variant: "destructive",
       });
     }
@@ -135,19 +136,20 @@ export default function AttendeeManagement({ eventId, price = 0 }: AttendeeManag
                   }
                 }
                 
-                const response = await apiRequest("POST", "/api/attendees/check-in", { 
-                  ticketCode,
-                  qrCodeData,
+                let qrCode = decodedText;
+                
+                const response = await apiRequest("POST", "/api/registrations/check-in", { 
+                  qrCode,
                   eventId: eventId
                 });
                 toast({
                   title: "Success",
-                  description: "Attendee checked in successfully",
+                  description: "Registration checked in successfully",
                 });
                 await qrScanner?.stop();
                 setIsScanning(false);
-                fetchAttendees();
-                setCurrentPage(1); // Reset to first page to show checked in attendee
+                fetchRegistrations();
+                setCurrentPage(1); // Reset to first page to show checked in registration
               } catch (error) {
                 let errorMessage = "Invalid ticket code";
                 if (error instanceof Error && error.message.includes("different event")) {
@@ -194,14 +196,14 @@ export default function AttendeeManagement({ eventId, price = 0 }: AttendeeManag
   };
 
   // Pagination calculation
-  const indexOfLastAttendee = currentPage * attendeesPerPage;
-  const indexOfFirstAttendee = indexOfLastAttendee - attendeesPerPage;
-  const currentAttendees = attendees.slice(indexOfFirstAttendee, indexOfLastAttendee);
-  const totalPages = Math.ceil(attendees.length / attendeesPerPage);
+  const indexOfLastRegistration = currentPage * attendeesPerPage;
+  const indexOfFirstRegistration = indexOfLastRegistration - attendeesPerPage;
+  const currentRegistrations = registrations.slice(indexOfFirstRegistration, indexOfLastRegistration);
+  const totalPages = Math.ceil(registrations.length / attendeesPerPage);
   
   // Stats calculation
-  const totalRevenue = (price || 0) * attendees.length;
-  const checkedInCount = attendees.filter(a => a.checkedIn).length;
+  const totalRevenue = (price || 0) * registrations.length;
+  const checkedInCount = registrations.filter(r => r.checkedIn).length;
 
   return (
     <div className="space-y-6">
@@ -212,7 +214,7 @@ export default function AttendeeManagement({ eventId, price = 0 }: AttendeeManag
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{attendees.length}</div>
+            <div className="text-2xl font-bold">{registrations.length}</div>
           </CardContent>
         </Card>
 
@@ -239,7 +241,7 @@ export default function AttendeeManagement({ eventId, price = 0 }: AttendeeManag
 
       <Card>
         <CardHeader>
-          <CardTitle>Attendees</CardTitle>
+          <CardTitle>Registrations</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -267,48 +269,55 @@ export default function AttendeeManagement({ eventId, price = 0 }: AttendeeManag
               </div>
             )}
             <div className="divide-y">
-              {currentAttendees.map((attendee) => (
+              {currentRegistrations.map((registration) => (
                 <div
-                  key={attendee.id}
+                  key={registration.id}
                   className="py-3 flex items-center justify-between"
                 >
                   <div className="flex items-center gap-3">
-                    {attendee.qrCodeData && (
+                    {registration.qrCode && registration.qrCode.startsWith('data:image') && (
                       <div className="h-16 w-16 flex-shrink-0">
                         <img 
-                          src={attendee.qrCodeData} 
-                          alt={`QR code for ${attendee.name}`}
+                          src={registration.qrCode} 
+                          alt={`QR code for ${registration.name}`}
                           className="h-full w-full object-cover"
                         />
                       </div>
                     )}
                     <div>
-                      <div className="font-medium">{attendee.name}</div>
+                      <div className="font-medium">{registration.name}</div>
                       <div className="text-sm text-muted-foreground">
-                        {attendee.email}
+                        {registration.email}
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">
-                        Ticket: {attendee.ticketCode.substring(0, 8)}...
+                        {registration.qrCode && !registration.qrCode.startsWith('data:image') && (
+                          <>Ticket: {registration.qrCode.substring(0, 8)}...</>
+                        )}
                       </div>
                     </div>
                   </div>
-                  {attendee.checkedIn ? (
-                    <div className="flex items-center text-green-600">
-                      <Check className="h-4 w-4 mr-1" />
-                      <span>
-                        Checked In
-                        {attendee.checkedInAt && (
-                          <div className="text-xs text-muted-foreground">
-                            {new Date(attendee.checkedInAt).toLocaleString()}
-                          </div>
-                        )}
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="text-sm text-muted-foreground">
-                      Not Checked In
-                    </div>
-                  )}
+                  <div className="flex flex-col items-end space-y-1">
+                    {registration.checkedIn ? (
+                      <div className="flex items-center text-green-600">
+                        <Check className="h-4 w-4 mr-1" />
+                        <span>Checked In</span>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-muted-foreground">
+                        Not Checked In
+                      </div>
+                    )}
+                    {registration.waiverSigned ? (
+                      <div className="flex items-center text-green-600 text-sm">
+                        <Check className="h-3 w-3 mr-1" />
+                        <span>Waiver Signed</span>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-amber-500">
+                        Waiver Not Signed
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

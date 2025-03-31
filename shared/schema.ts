@@ -74,13 +74,14 @@ export const registrations = pgTable("registrations", {
   eventId: integer("event_id").notNull(),
   name: text("name").notNull(),
   email: text("email").notNull(),
-  registeredAt: timestamp("registered_at").notNull().defaultNow(),
+  phone: text("phone"),
+  participants: integer("participants"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  qrCode: text("qr_code").default(''),
   checkedIn: boolean("checked_in").notNull().default(false),
   checkedInAt: timestamp("checked_in_at"),
   waiverSigned: boolean("waiver_signed").notNull().default(false),
-  waiverSignedAt: timestamp("waiver_signed_at"),
-  ticketCode: text("ticket_code").notNull().unique(), // For QR code text identification
-  qrCodeData: text("qr_code_data"), // For storing Base64-encoded QR codes
+  waiverSignedAt: timestamp("waiver_signed_at")
 });
 
 export const insertRegistrationSchema = createInsertSchema(registrations)
@@ -90,8 +91,7 @@ export const insertRegistrationSchema = createInsertSchema(registrations)
     checkedInAt: true,
     waiverSigned: true,
     waiverSignedAt: true,
-    ticketCode: true, // Generated server-side
-    qrCodeData: true  // Generated or imported server-side
+    createdAt: true
   });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -99,5 +99,5 @@ export type LoginData = z.infer<typeof loginSchema>;
 export type User = typeof users.$inferSelect;
 export type Event = typeof events.$inferSelect;
 export type InsertEvent = z.infer<typeof insertEventSchema>;
-export type InsertAttendee = z.infer<typeof insertAttendeeSchema>;
-export type Attendee = typeof attendees.$inferSelect;
+export type InsertRegistration = z.infer<typeof insertRegistrationSchema>;
+export type Registration = typeof registrations.$inferSelect;

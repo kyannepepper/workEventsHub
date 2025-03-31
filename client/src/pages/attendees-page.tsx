@@ -1,6 +1,6 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
-import { Event, Attendee } from "@shared/schema";
+import { Event, Registration } from "@shared/schema";
 import { Loader2, Check, X, Search } from "lucide-react";
 import { DashboardLayout } from "@/components/ui/dashboard-layout";
 import { useState } from "react";
@@ -41,19 +41,19 @@ export default function AttendeesPage() {
     enabled: !!user,
   });
 
-  // Fetch attendees for the selected event
-  const { data: attendees, isLoading: attendeesLoading } = useQuery<Attendee[]>({
-    queryKey: ["/api/events", selectedEventId, "attendees"],
+  // Fetch registrations for the selected event
+  const { data: registrations, isLoading: registrationsLoading } = useQuery<Registration[]>({
+    queryKey: ["/api/events", selectedEventId, "registrations"],
     enabled: !!selectedEventId,
   });
 
-  // Filter attendees based on search query
-  const filteredAttendees = attendees?.filter(attendee => {
+  // Filter registrations based on search query
+  const filteredRegistrations = registrations?.filter(registration => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (
-      attendee.name.toLowerCase().includes(query) ||
-      attendee.email.toLowerCase().includes(query)
+      registration.name.toLowerCase().includes(query) ||
+      registration.email.toLowerCase().includes(query)
     );
   });
 
@@ -106,7 +106,7 @@ export default function AttendeesPage() {
               </CardDescription>
             </CardHeader>
           </Card>
-        ) : attendeesLoading ? (
+        ) : registrationsLoading ? (
           <Card>
             <CardContent className="p-6 flex justify-center">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -119,7 +119,7 @@ export default function AttendeesPage() {
                 {events?.find(e => e.id === Number(selectedEventId))?.title}
               </CardTitle>
               <CardDescription>
-                {attendees?.length || 0} participants registered
+                {registrations?.length || 0} participants registered
               </CardDescription>
               <div className="flex mt-4">
                 <div className="relative w-full max-w-sm">
@@ -135,9 +135,9 @@ export default function AttendeesPage() {
               </div>
             </CardHeader>
             <CardContent>
-              {filteredAttendees?.length === 0 ? (
+              {filteredRegistrations?.length === 0 ? (
                 <div className="text-center py-4 text-muted-foreground">
-                  {attendees?.length === 0
+                  {registrations?.length === 0
                     ? "No participants registered for this event yet"
                     : "No registrations match your search"}
                 </div>
@@ -154,24 +154,30 @@ export default function AttendeesPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredAttendees?.map((attendee) => (
-                        <TableRow key={attendee.id}>
-                          <TableCell className="font-medium">{attendee.name}</TableCell>
-                          <TableCell>{attendee.email}</TableCell>
+                      {filteredRegistrations?.map((registration) => (
+                        <TableRow key={registration.id}>
+                          <TableCell className="font-medium">{registration.name}</TableCell>
+                          <TableCell>{registration.email}</TableCell>
                           <TableCell>
-                            {attendee.registeredAt 
-                              ? format(new Date(attendee.registeredAt), "MMM d, yyyy")
+                            {registration.createdAt 
+                              ? format(new Date(registration.createdAt), "MMM d, yyyy")
                               : "N/A"}
                           </TableCell>
                           <TableCell>
-                            {/* We'll use a placeholder for waiver status until we implement it */}
-                            <Badge variant="outline" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
-                              <X className="h-3 w-3 mr-1" />
-                              Pending
-                            </Badge>
+                            {registration.waiverSigned ? (
+                              <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+                                <Check className="h-3 w-3 mr-1" />
+                                Signed
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
+                                <X className="h-3 w-3 mr-1" />
+                                Not Signed
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell>
-                            {attendee.checkedIn ? (
+                            {registration.checkedIn ? (
                               <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
                                 <Check className="h-3 w-3 mr-1" />
                                 Checked In
