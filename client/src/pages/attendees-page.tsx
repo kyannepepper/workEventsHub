@@ -148,7 +148,6 @@ export default function AttendeesPage() {
                       <TableRow>
                         <TableHead>Name</TableHead>
                         <TableHead>Email</TableHead>
-                        <TableHead>Registered</TableHead>
                         <TableHead>Waiver Status</TableHead>
                         <TableHead>Check-in Status</TableHead>
                       </TableRow>
