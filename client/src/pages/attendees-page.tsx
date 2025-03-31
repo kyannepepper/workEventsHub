@@ -72,9 +72,9 @@ export default function AttendeesPage() {
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
           <div>
-            <h1 className="text-2xl font-bold">Attendees</h1>
+            <h1 className="text-2xl font-bold">Registrations</h1>
             <p className="text-muted-foreground">
-              View and manage attendees for your events
+              View and manage event registrations
             </p>
           </div>
           
@@ -102,7 +102,7 @@ export default function AttendeesPage() {
             <CardHeader>
               <CardTitle>Select an Event</CardTitle>
               <CardDescription>
-                Choose an event from the dropdown above to view its attendees
+                Choose an event from the dropdown above to view registrations
               </CardDescription>
             </CardHeader>
           </Card>
@@ -119,14 +119,14 @@ export default function AttendeesPage() {
                 {events?.find(e => e.id === Number(selectedEventId))?.title}
               </CardTitle>
               <CardDescription>
-                {attendees?.length || 0} attendees registered
+                {attendees?.length || 0} participants registered
               </CardDescription>
               <div className="flex mt-4">
                 <div className="relative w-full max-w-sm">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     type="search"
-                    placeholder="Search attendees..."
+                    placeholder="Search registrations..."
                     className="pl-8"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -138,8 +138,8 @@ export default function AttendeesPage() {
               {filteredAttendees?.length === 0 ? (
                 <div className="text-center py-4 text-muted-foreground">
                   {attendees?.length === 0
-                    ? "No attendees registered for this event yet"
-                    : "No attendees match your search"}
+                    ? "No participants registered for this event yet"
+                    : "No registrations match your search"}
                 </div>
               ) : (
                 <div className="rounded-md border">
@@ -149,7 +149,8 @@ export default function AttendeesPage() {
                         <TableHead>Name</TableHead>
                         <TableHead>Email</TableHead>
                         <TableHead>Registered</TableHead>
-                        <TableHead>Status</TableHead>
+                        <TableHead>Waiver Status</TableHead>
+                        <TableHead>Check-in Status</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -161,6 +162,13 @@ export default function AttendeesPage() {
                             {attendee.registeredAt 
                               ? format(new Date(attendee.registeredAt), "MMM d, yyyy")
                               : "N/A"}
+                          </TableCell>
+                          <TableCell>
+                            {/* We'll use a placeholder for waiver status until we implement it */}
+                            <Badge variant="outline" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
+                              <X className="h-3 w-3 mr-1" />
+                              Pending
+                            </Badge>
                           </TableCell>
                           <TableCell>
                             {attendee.checkedIn ? (
