@@ -96,6 +96,7 @@ export class DatabaseStorage implements IStorage {
   async createEvent(event: InsertEvent & { createdBy: number }): Promise<Event> {
     log(`Creating event for user ${event.createdBy}`, "storage");
 
+    // Set spots left initially equal to capacity
     const [newEvent] = await db.insert(events).values({
       ...event,
       date: event.startTime,

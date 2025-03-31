@@ -117,6 +117,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     log(`Fetching events for user ID: ${req.user.id}`, "routes");
     const events = await storage.getEventsByUser(req.user.id);
+    
+    // Calculate correct spotsLeft for each event based on current attendees
+    for (const event of events) {
+      const attendees = await storage.getEventAttendees(event.id);
+      // Update spotsLeft: capacity minus attendees, with minimum of 0
+      event.spotsLeft = Math.max(0, event.capacity - attendees.length);
+    }
+    
     res.json(events);
   });
 
@@ -125,6 +133,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const event = await storage.getEvent(Number(req.params.id));
     if (!event) return res.sendStatus(404);
     if (event.createdBy !== req.user.id) return res.sendStatus(403);
+    
+    // Calculate correct spotsLeft for this event based on current attendees
+    const attendees = await storage.getEventAttendees(event.id);
+    event.spotsLeft = Math.max(0, event.capacity - attendees.length);
+    
     res.json(event);
   });
 
@@ -197,6 +210,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create the attendee with the QR code data
       const attendee = await storage.createAttendee(parsed.data, qrCodeData);
+      
+      // Update the event's spots left
+      // We don't need to manually update spotsLeft in the database
+      // because it will be recalculated in real-time when the event is fetched
+      
       res.status(201).json(attendee);
     } catch (error) {
       log(`Error creating attendee: ${error}`, "routes");
