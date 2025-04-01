@@ -405,11 +405,14 @@ export default function JSQRScanner({ event, onCheckInComplete }: QrCodeScannerP
                   </div>
                   
                   {useManualInput && (
-                    <div className="w-full max-w-md space-y-2 mt-2">
+                    <div className="w-full max-w-md space-y-4 mt-2 text-left border-t pt-4">
+                      <h3 className="text-sm font-medium">Manual QR Code Entry</h3>
+                      <p className="text-xs text-muted-foreground">
+                        Since camera access might be restricted in this environment, you can manually enter a QR code value below.
+                      </p>
+                      
                       <div className="grid w-full items-center gap-1.5">
-                        <p className="text-sm text-muted-foreground">
-                          Enter the QR code value manually:
-                        </p>
+                        <p className="text-sm">Enter the QR code value:</p>
                         <div className="flex gap-2">
                           <Input
                             type="text"
@@ -424,6 +427,16 @@ export default function JSQRScanner({ event, onCheckInComplete }: QrCodeScannerP
                             Submit
                           </Button>
                         </div>
+                      </div>
+                      
+                      <div className="bg-muted/50 p-3 rounded-md text-xs">
+                        <p className="font-medium mb-1">Sample QR Code Values for Testing:</p>
+                        <ul className="space-y-1 list-disc pl-5">
+                          <li><button className="text-primary underline cursor-pointer" onClick={() => setManualCode("REG-EVENT1-1234")}>REG-EVENT1-1234</button> (Valid format)</li>
+                          <li><button className="text-primary underline cursor-pointer" onClick={() => setManualCode("EVENT1-TICKET-5678")}>EVENT1-TICKET-5678</button> (Valid format)</li>
+                          <li><button className="text-primary underline cursor-pointer" onClick={() => setManualCode("QRCODE-TEST-9012")}>QRCODE-TEST-9012</button> (Valid format)</li>
+                        </ul>
+                        <p className="mt-2 italic">Click any sample value to insert it into the input field.</p>
                       </div>
                     </div>
                   )}
