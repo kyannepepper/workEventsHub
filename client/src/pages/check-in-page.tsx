@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import SimpleCheckInScanner from "@/components/simple-check-in-scanner";
+import QrCodeScanner from "@/components/qr-code-scanner";
 
 export default function CheckInPage() {
   const { user } = useAuth();
@@ -114,7 +115,7 @@ export default function CheckInPage() {
           </Card>
         ) : (
           selectedEvent && (
-            <SimpleCheckInScanner 
+            <QrCodeScanner 
               event={selectedEvent} 
               onCheckInComplete={handleCheckInComplete} 
             />
