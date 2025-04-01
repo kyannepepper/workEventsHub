@@ -72,7 +72,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       // Parse the request body
-      const body = {
+      // Process the data before validation to ensure proper formats
+      let bodyToValidate = { 
         ...req.body,
         price: parseInt(req.body.price),
         capacity: parseInt(req.body.capacity),
@@ -85,7 +86,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const uploadedFiles = req.files as Express.Multer.File[];
       if (uploadedFiles?.length) {
         const imageUrls = await storage.uploadEventImages(uploadedFiles);
-        body.images.push(...imageUrls);
+        bodyToValidate.images.push(...imageUrls);
       }
 
       // Handle image URLs from the request
@@ -94,10 +95,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ? req.body.images
           : [req.body.images];
         // Accept all valid image URLs
-        body.images.push(...urlImages);
+        bodyToValidate.images.push(...urlImages);
       }
 
-      const parsed = insertEventSchema.safeParse(body);
+      const parsed = insertEventSchema.safeParse(bodyToValidate);
       if (!parsed.success) {
         return res.status(400).json(parsed.error);
       }
@@ -151,24 +152,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Log the raw request body for debugging
     log(`Raw update data received: ${JSON.stringify(req.body)}`, "routes");
 
-    const parsed = insertEventSchema.partial().safeParse(req.body);
+    // Process the data before validation to ensure images are in the right format
+    let bodyToValidate = { ...req.body };
+    
+    // Ensure images field is an array before validation
+    if (bodyToValidate.images) {
+      // If images is a string, convert it to an array
+      if (typeof bodyToValidate.images === 'string') {
+        bodyToValidate.images = [bodyToValidate.images];
+      }
+    } else {
+      bodyToValidate.images = [];
+    }
+    
+    // Convert price and capacity to numbers if they're strings
+    if (bodyToValidate.price && typeof bodyToValidate.price === 'string') {
+      bodyToValidate.price = parseInt(bodyToValidate.price, 10);
+    }
+    
+    if (bodyToValidate.capacity && typeof bodyToValidate.capacity === 'string') {
+      bodyToValidate.capacity = parseInt(bodyToValidate.capacity, 10);
+    }
+
+    const parsed = insertEventSchema.partial().safeParse(bodyToValidate);
     if (!parsed.success) {
       return res.status(400).json(parsed.error);
     }
 
     const uploadedFiles = req.files as Express.Multer.File[];
-    
-    // Handle image URLs from the request - could be a string or array
-    let imageUrls: string[] = [];
-    
-    if (parsed.data.images) {
-      // Convert to array if it's a string
-      if (typeof parsed.data.images === 'string') {
-        imageUrls.push(parsed.data.images);
-      } else if (Array.isArray(parsed.data.images)) {
-        imageUrls = parsed.data.images;
-      }
-    }
+    let imageUrls = parsed.data.images || [];
     
     // Add uploaded files
     if (uploadedFiles?.length) {
