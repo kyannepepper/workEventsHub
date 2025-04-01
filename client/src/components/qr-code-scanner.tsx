@@ -22,6 +22,8 @@ interface QrCodeScannerProps {
 export default function QrCodeScanner({ event, onCheckInComplete }: QrCodeScannerProps) {
   const [isScanning, setIsScanning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [manualCode, setManualCode] = useState("");
+  const [useManualInput, setUseManualInput] = useState(false);
   const [scanResult, setScanResult] = useState<{
     success: boolean;
     message: string;
@@ -63,14 +65,48 @@ export default function QrCodeScanner({ event, onCheckInComplete }: QrCodeScanne
 
   // Start the QR code scanner
   const startScanner = async () => {
-    if (!scannerContainerRef.current) return;
+    console.log("📷 Starting QR scanner...");
     
     try {
-      const html5QrCode = new Html5Qrcode("scanner");
-      html5QrcodeRef.current = html5QrCode;
-      
+      // Make sure the scanner container is rendered
+      if (!scannerContainerRef.current) {
+        console.error("Scanner container ref is null");
+        toast({
+          title: "Scanner Error",
+          description: "Could not initialize QR scanner. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // First set scanning state to true so the scanner div is rendered
       setIsScanning(true);
       setScanResult(null);
+      
+      // Small delay to ensure DOM elements are rendered
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Now try to initialize the scanner
+      console.log("📷 Initializing HTML5QrCode...");
+      const scannerId = "scanner";
+      
+      // Check if scanner element exists in DOM
+      const scannerElement = document.getElementById(scannerId);
+      if (!scannerElement) {
+        console.error(`Scanner element with ID "${scannerId}" not found in DOM`);
+        toast({
+          title: "Scanner Error",
+          description: "QR scanner element not found. Please try again.",
+          variant: "destructive",
+        });
+        setIsScanning(false);
+        return;
+      }
+      
+      const html5QrCode = new Html5Qrcode(scannerId);
+      html5QrcodeRef.current = html5QrCode;
+      
+      console.log("📷 HTML5QrCode initialized successfully");
       
       const qrCodeSuccessCallback = async (decodedText: string) => {
         console.log("🔍 QR Code Scanned:", decodedText);
@@ -133,22 +169,47 @@ export default function QrCodeScanner({ event, onCheckInComplete }: QrCodeScanne
         }
       };
       
-      const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-      
-      await html5QrCode.start(
-        { facingMode: "environment" }, 
-        config, 
-        qrCodeSuccessCallback, 
-        (errorMessage) => {
-          // This is just for errors during scanning, not for successful scans
-          console.log("QR Code scanning error:", errorMessage);
+      try {
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+        
+        console.log("📷 Starting camera...");
+        await html5QrCode.start(
+          { facingMode: "environment" }, 
+          config, 
+          qrCodeSuccessCallback, 
+          (errorMessage) => {
+            // This is just for errors during scanning, not for successful scans
+            console.log("QR Code scanning error:", errorMessage);
+          }
+        );
+        
+        toast({
+          title: "Scanner Ready",
+          description: "QR code scanner is now active. Point your camera at a QR code.",
+        });
+      } catch (cameraError) {
+        console.error("Failed to start camera:", cameraError);
+        
+        // Check if it's a permission error
+        const errorMessage = cameraError instanceof Error ? cameraError.message : String(cameraError);
+        
+        if (errorMessage.includes("Permission") || errorMessage.includes("permission")) {
+          toast({
+            title: "Camera Permission Denied",
+            description: "Please allow camera access to scan QR codes. You may need to update your browser settings.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Camera Error",
+            description: "Could not access your camera. Try using a different browser or device.",
+            variant: "destructive",
+          });
         }
-      );
-      
-      toast({
-        title: "Scanner Ready",
-        description: "QR code scanner is now active. Point your camera at a QR code.",
-      });
+        
+        setIsScanning(false);
+        throw cameraError; // Re-throw to be caught by the outer try/catch
+      }
     } catch (error) {
       console.error("Error starting scanner:", error);
       setIsScanning(false);
@@ -240,28 +301,130 @@ export default function QrCodeScanner({ event, onCheckInComplete }: QrCodeScanne
                 <div className="flex flex-col items-center space-y-4 p-4 text-center">
                   <Camera className="h-16 w-16 text-primary" />
                   <p className="text-muted-foreground max-w-md">
-                    Click the button below to start scanning QR codes. 
+                    Click the button below to start scanning QR codes.
                     Make sure to allow camera access when prompted.
                   </p>
-                  <Button 
-                    onClick={startScanner} 
-                    className="w-full sm:w-auto"
-                    disabled={isSubmitting}
-                  >
-                    <Camera className="mr-2 h-4 w-4" />
-                    Start QR Scanner
-                  </Button>
+                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                    <Button 
+                      onClick={startScanner} 
+                      className="w-full sm:w-auto"
+                      disabled={isSubmitting}
+                    >
+                      <Camera className="mr-2 h-4 w-4" />
+                      Start QR Scanner
+                    </Button>
+                    <Button
+                      onClick={() => setUseManualInput(!useManualInput)}
+                      variant="outline"
+                      className="w-full sm:w-auto"
+                    >
+                      {useManualInput ? "Hide Manual Entry" : "Manual Entry"}
+                    </Button>
+                  </div>
+                  
+                  {useManualInput && (
+                    <div className="w-full max-w-md space-y-2 mt-2">
+                      <div className="grid w-full items-center gap-1.5">
+                        <p className="text-sm text-muted-foreground">
+                          Enter the QR code value manually:
+                        </p>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={manualCode}
+                            onChange={(e) => setManualCode(e.target.value)}
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            placeholder="Enter QR code value"
+                          />
+                          <Button
+                            onClick={async () => {
+                              if (!manualCode.trim()) {
+                                toast({
+                                  title: "Error",
+                                  description: "Please enter a QR code value",
+                                  variant: "destructive",
+                                });
+                                return;
+                              }
+                              
+                              setIsSubmitting(true);
+                              try {
+                                // Display the raw manual data for debugging
+                                setScanResult({
+                                  success: true,
+                                  message: "Processing manual QR code...",
+                                  scannedData: manualCode
+                                });
+                                
+                                const response = await apiRequest("POST", "/api/registrations/check-in", { 
+                                  qrCode: manualCode,
+                                  eventId: event.id
+                                });
+                                
+                                const registration = await response.json();
+                                
+                                setScanResult({
+                                  success: true,
+                                  message: "Registration checked in successfully!",
+                                  scannedData: manualCode,
+                                  registration
+                                });
+                                
+                                setManualCode("");
+                                loadAttendees();
+                              } catch (error) {
+                                let errorMessage = "Failed to check in attendee";
+                                
+                                if (error instanceof Error) {
+                                  errorMessage = error.message;
+                                }
+                                
+                                setScanResult({
+                                  success: false,
+                                  message: errorMessage,
+                                  scannedData: manualCode
+                                });
+                                
+                                toast({
+                                  title: "Check-in Failed",
+                                  description: errorMessage,
+                                  variant: "destructive",
+                                });
+                              } finally {
+                                setIsSubmitting(false);
+                              }
+                            }}
+                            disabled={isSubmitting || !manualCode.trim()}
+                          >
+                            Submit
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="flex flex-col items-center space-y-4">
-                  <Button 
-                    onClick={startScanner} 
-                    className="w-full sm:w-auto"
-                    disabled={isSubmitting}
-                  >
-                    <Camera className="mr-2 h-4 w-4" />
-                    Scan Another QR Code
-                  </Button>
+                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                    <Button 
+                      onClick={startScanner} 
+                      className="w-full sm:w-auto"
+                      disabled={isSubmitting}
+                    >
+                      <Camera className="mr-2 h-4 w-4" />
+                      Scan Another QR Code
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setScanResult(null);
+                        setUseManualInput(false);
+                      }}
+                      variant="outline"
+                      className="w-full sm:w-auto"
+                    >
+                      Reset
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
