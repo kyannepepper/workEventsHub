@@ -270,9 +270,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      const registration = await storage.getRegistrationByQrCode(qrCode);
+      // Log the received QR code for debugging
+      log(`Received QR code for check-in: ${qrCode.substring(0, 50)}...`, "routes");
+      
+      // The QR code might be in different formats:
+      // 1. A full data URL (starts with data:image)
+      // 2. A JSON string containing registration data
+      // 3. Plain text
+
+      let actualQrCode = qrCode;
+      
+      // If the qrCode is a JSON string, try to parse and extract the original QR code
+      if (typeof qrCode === 'string' && !qrCode.startsWith('data:image')) {
+        try {
+          // Try to parse the QR code as JSON
+          const parsedData = JSON.parse(qrCode);
+          log(`QR code parsed as JSON: ${JSON.stringify(parsedData)}`, "routes");
+          
+          // Stringify it again to match how it's stored in the database
+          actualQrCode = qrCode;
+        } catch (e) {
+          // Not valid JSON, use as is
+          log(`QR code is not valid JSON, using as is`, "routes");
+        }
+      }
+      
+      // Attempt to find the registration by the QR code
+      const registration = await storage.getRegistrationByQrCode(actualQrCode);
       
       if (!registration) {
+        log(`No registration found for QR code`, "routes");
         return res.status(400).json({ error: "Invalid QR code" });
       }
 
@@ -290,7 +317,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!registration.qrCode) {
         return res.status(400).json({ error: "Invalid QR code" });
       }
+      
       const updatedRegistration = await storage.checkInRegistration(registration.qrCode);
+      log(`Successfully checked in registration ${updatedRegistration.id}`, "routes");
       res.json(updatedRegistration);
     } catch (error) {
       log(`Check-in error: ${error}`, "routes");

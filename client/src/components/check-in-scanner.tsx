@@ -101,25 +101,26 @@ export default function CheckInScanner({ event, onCheckInComplete }: CheckInScan
             { fps: 10, qrbox: 250 },
             async (decodedText) => {
               try {
-                // The QR code could be either:
-                // 1. A QR code (string)
-                // 2. A Base64-encoded QR code image
-                // 3. Some JSON data that contains a QR code
+                // The QR code is a JSON string containing registration info
+                // We need to handle different formats based on how it was generated
                 
                 let qrCode = decodedText;
                 
                 // Check if it's a Base64 image
                 if (decodedText.startsWith("data:image")) {
+                  // If it's an image, use it directly
                   qrCode = decodedText;
-                  // We'll send the QR image data to the server for verification
                 } else {
-                  // Try to parse it as JSON in case it's a JSON object
                   try {
+                    // First try to parse it as JSON
                     const parsedData = JSON.parse(decodedText);
-                    // If it's a parsed JSON object, use it as is
+                    // If we successfully parsed the JSON, this is the correct format
+                    // We need to send the entire JSON string to the backend
+                    console.log("Parsed QR data:", parsedData);
                     qrCode = decodedText;
                   } catch (e) {
-                    // Not JSON, use as raw QR code
+                    // If it's not valid JSON, use the text as is
+                    console.log("Using raw text as QR code:", decodedText);
                   }
                 }
                 
