@@ -1,11 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Registration, Event } from "@shared/schema";
 import { 
-  Camera, 
-  X, 
+  QrCode, 
   Loader2, 
   CheckCircle2,
   AlertCircle,
@@ -13,7 +12,15 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Html5Qrcode } from "html5-qrcode";
+import { Input } from "@/components/ui/input";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue, 
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface CheckInScannerProps {
   event: Event;
@@ -21,153 +28,85 @@ interface CheckInScannerProps {
 }
 
 export default function CheckInScanner({ event, onCheckInComplete }: CheckInScannerProps) {
-  const [isScanning, setIsScanning] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const scannerRef = useRef<Html5Qrcode | null>(null);
-  const scannerContainerRef = useRef<HTMLDivElement>(null);
-  
+  const [manualCode, setManualCode] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [registrationId, setRegistrationId] = useState("");
+  const [manualRegistrations, setManualRegistrations] = useState<Registration[]>([]);
+  const [isLoadingRegistrations, setIsLoadingRegistrations] = useState(false);
   const [scanResult, setScanResult] = useState<{
     success: boolean;
     message: string;
     registration?: Registration;
   } | null>(null);
-  
   const { toast } = useToast();
-  
-  // Start the QR scanner
-  const startScanner = async () => {
-    setIsLoading(true);
-    setScanResult(null);
-    
+
+  // Load registrations for this event
+  const loadRegistrations = async () => {
+    setIsLoadingRegistrations(true);
     try {
-      // Clean up any existing scanner
-      if (scannerRef.current) {
-        await scannerRef.current.stop();
-        scannerRef.current = null;
+      const response = await fetch(`/api/events/${event.id}/registrations`);
+      if (!response.ok) {
+        throw new Error("Failed to load registrations");
       }
-      
-      // Make sure we have a container to mount the scanner
-      if (!scannerContainerRef.current) {
-        throw new Error("Scanner container not found");
-      }
-      
-      // Create a scanner ID if it doesn't exist
-      if (!scannerContainerRef.current.id) {
-        scannerContainerRef.current.id = "qr-scanner-container";
-      }
-      
-      const scannerId = scannerContainerRef.current.id;
-      
-      // Create a new scanner instance
-      scannerRef.current = new Html5Qrcode(scannerId);
-      
-      // Turn on scanning
-      setIsScanning(true);
-      
-      await scannerRef.current.start(
-        { facingMode: "environment" },
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 },
-        },
-        async (decodedText) => {
-          try {
-            console.log("QR Code detected:", decodedText);
-            
-            // Process the QR code
-            await processQrCode(decodedText);
-            
-            // Stop scanning after successful reading
-            if (scannerRef.current) {
-              await scannerRef.current.stop();
-              setIsScanning(false);
-            }
-          } catch (error) {
-            console.error("QR code processing error:", error);
-          }
-        },
-        (errorMessage) => {
-          // Ignore "No QR found" messages as they're expected
-          if (!errorMessage.includes("No QR code found")) {
-            console.warn("QR scan error:", errorMessage);
-          }
-        }
-      );
+      const data = await response.json();
+      setManualRegistrations(data);
     } catch (error) {
-      console.error("Scanner initialization error:", error);
-      
-      let errorMessage = "Failed to initialize camera.";
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      }
-      
       toast({
-        title: "Scanner Error",
-        description: errorMessage,
+        title: "Error",
+        description: "Failed to load registrations. Please try again.",
         variant: "destructive",
       });
-      
-      setIsScanning(false);
     } finally {
-      setIsLoading(false);
+      setIsLoadingRegistrations(false);
     }
   };
-  
-  // Stop the scanner
-  const stopScanner = async () => {
-    if (scannerRef.current) {
-      try {
-        await scannerRef.current.stop();
-      } catch (error) {
-        console.error("Error stopping scanner:", error);
-      }
-    }
-    setIsScanning(false);
-  };
-  
-  // Clean up the scanner when component unmounts
+
+  // Load registrations when component mounts
   useEffect(() => {
-    return () => {
-      if (scannerRef.current) {
-        scannerRef.current.stop().catch(console.error);
-      }
-    };
-  }, []);
-  
-  // Process a scanned QR code
-  const processQrCode = async (qrCodeData: string) => {
-    setIsLoading(true);
-    
+    loadRegistrations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event.id]);
+
+  // Handle manual check-in by QR code
+  const handleManualCheckIn = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!manualCode) {
+      toast({
+        title: "Error",
+        description: "Please enter a QR code",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setScanResult(null);
+
     try {
-      // Attempt to check in the registration
-      console.log("Checking in with QR code:", qrCodeData);
-      
-      const response = await apiRequest("POST", "/api/registrations/check-in", {
-        qrCode: qrCodeData,
+      // Check in with the QR code
+      const response = await apiRequest("POST", "/api/registrations/check-in", { 
+        qrCode: manualCode,
         eventId: event.id
       });
       
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to check in attendee");
-      }
-      
       const registration = await response.json();
       
-      // Show success message
       setScanResult({
         success: true,
         message: "Registration checked in successfully!",
         registration
       });
       
-      // Notify parent component
       onCheckInComplete();
       
-    } catch (error) {
-      console.error("Check-in error:", error);
+      // Reset the form
+      setManualCode("");
       
+      // Refresh the registrations list
+      loadRegistrations();
+    } catch (error) {
       let errorMessage = "Failed to check in attendee";
+      
       if (error instanceof Error) {
         errorMessage = error.message;
       }
@@ -183,83 +122,195 @@ export default function CheckInScanner({ event, onCheckInComplete }: CheckInScan
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
-  
-  // Clear result after a delay
-  useEffect(() => {
-    if (scanResult) {
-      const timer = setTimeout(() => {
-        setScanResult(null);
-      }, 5000);
-      
-      return () => clearTimeout(timer);
+
+  // Handle check-in by selecting an attendee from the list
+  const handleSelectCheckIn = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!registrationId) {
+      toast({
+        title: "Error",
+        description: "Please select an attendee to check in",
+        variant: "destructive",
+      });
+      return;
     }
-  }, [scanResult]);
+
+    setIsSubmitting(true);
+    setScanResult(null);
+
+    try {
+      // Find the registration by ID
+      const selectedRegistration = manualRegistrations.find(r => r.id.toString() === registrationId);
+      
+      if (!selectedRegistration) {
+        throw new Error("Registration not found");
+      }
+
+      // Check in the registration
+      const response = await apiRequest("POST", "/api/registrations/check-in", { 
+        qrCode: selectedRegistration.qrCode,
+        eventId: event.id
+      });
+      
+      const registration = await response.json();
+      
+      setScanResult({
+        success: true,
+        message: "Registration checked in successfully!",
+        registration
+      });
+      
+      onCheckInComplete();
+      
+      // Reset the form
+      setRegistrationId("");
+      
+      // Refresh the registrations list
+      loadRegistrations();
+    } catch (error) {
+      let errorMessage = "Failed to check in attendee";
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      setScanResult({
+        success: false,
+        message: errorMessage
+      });
+      
+      toast({
+        title: "Check-in Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <Card className="w-full">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Camera className="h-5 w-5" />
-          QR Scanner for {event.title}
+          <QrCode className="h-5 w-5" />
+          Check-In for {event.title}
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
-          <p className="text-sm text-muted-foreground mb-2">
-            Scan QR codes to check in attendees for this event.
-          </p>
+          <Tabs defaultValue="qrcode" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="qrcode">QR Code Check-in</TabsTrigger>
+              <TabsTrigger value="attendee">Select Attendee</TabsTrigger>
+            </TabsList>
+            
+            {/* QR Code Check-in Tab */}
+            <TabsContent value="qrcode" className="space-y-4 mt-4">
+              <p className="text-sm text-muted-foreground">
+                Enter a QR code to check in an attendee.
+              </p>
+              
+              <form onSubmit={handleManualCheckIn} className="space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="qrcode" className="text-sm font-medium">
+                    QR Code
+                  </label>
+                  <Input
+                    id="qrcode"
+                    value={manualCode}
+                    onChange={(e) => setManualCode(e.target.value)}
+                    placeholder="Enter QR code"
+                    disabled={isSubmitting}
+                  />
+                </div>
+                
+                <Button type="submit" disabled={isSubmitting || !manualCode}>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Checking in...
+                    </>
+                  ) : (
+                    <>
+                      <QrCode className="mr-2 h-4 w-4" />
+                      Check In
+                    </>
+                  )}
+                </Button>
+              </form>
+            </TabsContent>
+            
+            {/* Select Attendee Tab */}
+            <TabsContent value="attendee" className="space-y-4 mt-4">
+              <p className="text-sm text-muted-foreground">
+                Select an attendee from the list below to check them in.
+              </p>
+              
+              <form onSubmit={handleSelectCheckIn} className="space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="registration" className="text-sm font-medium">
+                    Select Attendee
+                  </label>
+                  
+                  <Select 
+                    value={registrationId} 
+                    onValueChange={setRegistrationId}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select an attendee" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {isLoadingRegistrations ? (
+                        <div className="flex items-center justify-center py-2">
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          Loading...
+                        </div>
+                      ) : manualRegistrations.length === 0 ? (
+                        <div className="p-2 text-sm text-muted-foreground">
+                          No registrations found
+                        </div>
+                      ) : (
+                        manualRegistrations.map(registration => (
+                          <SelectItem 
+                            key={registration.id} 
+                            value={registration.id.toString()}
+                            disabled={registration.checkedIn}
+                          >
+                            <div className="flex items-center justify-between w-full">
+                              <span>{registration.name}</span>
+                              {registration.checkedIn && (
+                                <CheckCircle2 className="h-4 w-4 text-green-500 ml-2" />
+                              )}
+                            </div>
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <Button type="submit" disabled={isSubmitting || !registrationId}>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Checking in...
+                    </>
+                  ) : (
+                    <>
+                      <Ticket className="mr-2 h-4 w-4" />
+                      Check In Attendee
+                    </>
+                  )}
+                </Button>
+              </form>
+            </TabsContent>
+          </Tabs>
           
-          {/* Scanner button */}
-          {!isScanning ? (
-            <Button 
-              onClick={startScanner} 
-              disabled={isLoading}
-              className="w-full"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Initializing Camera...
-                </>
-              ) : (
-                <>
-                  <Camera className="mr-2 h-4 w-4" />
-                  Start QR Scanner
-                </>
-              )}
-            </Button>
-          ) : (
-            <Button 
-              onClick={stopScanner} 
-              variant="outline"
-              className="w-full"
-            >
-              <X className="mr-2 h-4 w-4" />
-              Stop Scanner
-            </Button>
-          )}
-          
-          {/* Scanner container */}
-          {isScanning && (
-            <div className="mt-4 rounded-md overflow-hidden border">
-              <div 
-                ref={scannerContainerRef} 
-                id="qr-scanner-container"
-                style={{ 
-                  width: '100%', 
-                  maxWidth: '400px',
-                  height: '300px',
-                  margin: '0 auto',
-                  position: 'relative'
-                }}
-              />
-            </div>
-          )}
-          
-          {/* Scan result */}
+          {/* Result display */}
           {scanResult && (
             <div className={`p-4 rounded-md ${
               scanResult.success ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"
@@ -295,12 +346,27 @@ export default function CheckInScanner({ event, onCheckInComplete }: CheckInScan
             </div>
           )}
           
-          {/* Instructions */}
-          {isScanning && (
-            <div className="text-center text-sm text-muted-foreground">
-              <p>Point your camera at a QR code to scan</p>
+          {/* Checked-in attendees list */}
+          <div className="border-t pt-4">
+            <h3 className="text-sm font-medium mb-2">Checked-in Attendees</h3>
+            <div className="space-y-1 max-h-[200px] overflow-y-auto">
+              {manualRegistrations.filter(r => r.checkedIn).length === 0 ? (
+                <p className="text-sm text-muted-foreground">No attendees checked in yet</p>
+              ) : (
+                manualRegistrations
+                  .filter(r => r.checkedIn)
+                  .map(registration => (
+                    <div key={registration.id} className="flex items-center p-2 bg-gray-50 rounded-md">
+                      <CheckCircle2 className="h-4 w-4 text-green-500 mr-2" />
+                      <div>
+                        <p className="text-sm font-medium">{registration.name}</p>
+                        <p className="text-xs text-muted-foreground">{registration.email}</p>
+                      </div>
+                    </div>
+                  ))
+              )}
             </div>
-          )}
+          </div>
         </div>
       </CardContent>
     </Card>
