@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Event, Registration } from "@shared/schema";
 import { Loader2, Check, X, Search } from "lucide-react";
 import { DashboardLayout } from "@/components/ui/dashboard-layout";
-import { useState } from "react";
+import React, { useState } from "react";
 import { format } from "date-fns";
 import {
   Card,
@@ -42,10 +42,19 @@ export default function AttendeesPage() {
   });
 
   // Fetch registrations for the selected event
-  const { data: registrations, isLoading: registrationsLoading } = useQuery<Registration[]>({
-    queryKey: ["/api/events", selectedEventId, "registrations"],
+  const { 
+    data: registrations, 
+    isLoading: registrationsLoading,
+    error: registrationsError
+  } = useQuery<Registration[]>({
+    queryKey: [`/api/events/${selectedEventId}/registrations`],
     enabled: !!selectedEventId,
   });
+  
+  // Let's add console logging for direct debugging
+  console.log("Selected Event ID:", selectedEventId);
+  console.log("Registrations:", registrations);
+  console.log("Registrations Error:", registrationsError);
 
   // Filter registrations based on search query
   const filteredRegistrations = registrations?.filter(registration => {
@@ -110,6 +119,15 @@ export default function AttendeesPage() {
           <Card>
             <CardContent className="p-6 flex justify-center">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </CardContent>
+          </Card>
+        ) : registrationsError ? (
+          <Card>
+            <CardContent className="p-6">
+              <div className="text-red-500">
+                <h3 className="font-bold">Error loading registrations:</h3>
+                <p>{(registrationsError as Error).message}</p>
+              </div>
             </CardContent>
           </Card>
         ) : (
