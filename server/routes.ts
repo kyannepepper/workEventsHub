@@ -93,7 +93,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const urlImages = Array.isArray(req.body.images)
           ? req.body.images
           : [req.body.images];
-        body.images.push(...urlImages.filter((url: string) => url.startsWith('http')));
+        // Accept all valid image URLs
+        body.images.push(...urlImages);
       }
 
       const parsed = insertEventSchema.safeParse(body);
@@ -156,7 +157,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     const uploadedFiles = req.files as Express.Multer.File[];
-    let imageUrls = parsed.data.images || [];
+    
+    // Handle image URLs from the request - could be a string or array
+    let imageUrls: string[] = [];
+    
+    if (parsed.data.images) {
+      // Convert to array if it's a string
+      if (typeof parsed.data.images === 'string') {
+        imageUrls.push(parsed.data.images);
+      } else if (Array.isArray(parsed.data.images)) {
+        imageUrls = parsed.data.images;
+      }
+    }
+    
+    // Add uploaded files
     if (uploadedFiles?.length) {
       const newImageUrls = await storage.uploadEventImages(uploadedFiles);
       imageUrls = [...imageUrls, ...newImageUrls];
