@@ -34,6 +34,8 @@ export default function Html5QrScanner({ event, onCheckInComplete }: QrCodeScann
   } | null>(null);
   const [checkedInAttendees, setCheckedInAttendees] = useState<Registration[]>([]);
   const [isLoadingAttendees, setIsLoadingAttendees] = useState(false);
+  const [initializationAttempts, setInitializationAttempts] = useState(0);
+  const [isInitializing, setIsInitializing] = useState(false);
   
   const scannerContainerRef = useRef<HTMLDivElement>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
@@ -124,80 +126,123 @@ export default function Html5QrScanner({ event, onCheckInComplete }: QrCodeScann
   const startScanner = async () => {
     console.log("📷 Starting HTML5 QR scanner...");
     
-    try {
-      // Make sure the scanner container element exists
-      if (!scannerContainerRef.current) {
-        toast({
-          title: "Scanner Error",
-          description: "Could not initialize QR scanner. Please try again.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // Set scanning state
-      setIsScanning(true);
-      setScanResult(null);
-      
-      // Clear the container before initializing the scanner
-      scannerContainerRef.current.innerHTML = '';
-      
-      // Create unique scanner ID
-      const scannerId = `html5-qrcode-${Date.now()}`;
-      const scannerDiv = document.createElement('div');
-      scannerDiv.id = scannerId;
-      scannerContainerRef.current.appendChild(scannerDiv);
-      
-      // Create new scanner instance
-      scannerRef.current = new Html5Qrcode(scannerId);
-            
-      const config = {
-        fps: 10,
-        qrbox: 250,
-        aspectRatio: 1.0,
-        disableFlip: false,
-        formatsToSupport: [0], // Support QR Code format only (0)
-      };
-      
-      // Start scanning
-      await scannerRef.current.start(
-        { facingMode: "environment" }, // Use back camera by default
-        config,
-        handleQrResult,
-        (errorMessage) => {
-          // This is the QR scanning in progress, so don't display errors here
-          console.log(`QR scan in progress, frame error: ${errorMessage}`);
-        }
-      );
-      
-      toast({
-        title: "Scanner Ready",
-        description: "QR code scanner is now active. Point your camera at a QR code.",
-      });
-    } catch (error) {
-      console.error("Error starting scanner:", error);
-      setIsScanning(false);
-      
-      // Check if it's a permission error
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      
-      if (errorMessage.includes("Permission") || errorMessage.includes("permission")) {
-        toast({
-          title: "Camera Permission Denied",
-          description: "Please allow camera access to scan QR codes. You may need to update your browser settings.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Scanner Error",
-          description: "Could not start the QR code scanner. You can use manual entry instead.",
-          variant: "destructive",
-        });
-        
-        // Show manual entry as fallback
-        setUseManualInput(true);
-      }
+    // Set scanning state immediately
+    setIsScanning(true);
+    setScanResult(null);
+    setIsInitializing(true);
+    
+    // Reset the attempt counter if this is a fresh start
+    if (initializationAttempts > 0) {
+      setInitializationAttempts(0);
     }
+    
+    const startScannerWithDelay = () => {
+      // Add a delay before initializing to let the component fully render
+      setTimeout(async () => {
+        try {
+          // Make sure the scanner container element exists
+          if (!scannerContainerRef.current) {
+            console.error("Scanner container not found");
+            throw new Error("Could not initialize QR scanner. Please try again.");
+          }
+          
+          // Clear the container before initializing the scanner
+          scannerContainerRef.current.innerHTML = '';
+          
+          // Create unique scanner ID
+          const scannerId = `html5-qrcode-${Date.now()}`;
+          const scannerDiv = document.createElement('div');
+          scannerDiv.id = scannerId;
+          scannerContainerRef.current.appendChild(scannerDiv);
+          
+          // Create new scanner instance
+          scannerRef.current = new Html5Qrcode(scannerId);
+                
+          const config = {
+            fps: 10,
+            qrbox: 250,
+            aspectRatio: 1.0,
+            disableFlip: false,
+            formatsToSupport: [0], // Support QR Code format only (0)
+          };
+          
+          // Start scanning
+          try {
+            await scannerRef.current.start(
+              { facingMode: "environment" }, // Use back camera by default
+              config,
+              handleQrResult,
+              (errorMessage) => {
+                // This is the QR scanning in progress, so don't display errors here
+                console.log(`QR scan in progress, frame error: ${errorMessage}`);
+              }
+            );
+            
+            toast({
+              title: "Scanner Ready",
+              description: "QR code scanner is now active. Point your camera at a QR code.",
+            });
+            
+            setIsInitializing(false);
+          } catch (innerError) {
+            console.error("Error in scanner initialization:", innerError);
+            
+            // Increment attempts counter
+            const newAttemptCount = initializationAttempts + 1;
+            setInitializationAttempts(newAttemptCount);
+            
+            // If we haven't tried too many times, retry after a delay
+            if (newAttemptCount < 3) {
+              console.log(`Retrying scanner initialization (attempt ${newAttemptCount + 1})...`);
+              
+              // Clean up failed scanner attempt
+              if (scannerRef.current) {
+                try {
+                  await scannerRef.current.clear();
+                } catch (e) {
+                  console.error("Error clearing scanner:", e);
+                }
+                scannerRef.current = null;
+              }
+              
+              // Wait longer for next retry
+              setTimeout(startScannerWithDelay, 1000);
+              return;
+            }
+            
+            // If we've tried enough times, show the error
+            throw innerError;
+          }
+        } catch (error) {
+          console.error("Error starting scanner:", error);
+          setIsScanning(false);
+          setIsInitializing(false);
+          
+          // Check if it's a permission error
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          
+          if (errorMessage.includes("Permission") || errorMessage.includes("permission")) {
+            toast({
+              title: "Camera Permission Denied",
+              description: "Please allow camera access to scan QR codes. You may need to update your browser settings.",
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Scanner Error",
+              description: "Could not start the QR code scanner. You can use manual entry instead.",
+              variant: "destructive",
+            });
+            
+            // Show manual entry as fallback
+            setUseManualInput(true);
+          }
+        }
+      }, 1000); // Longer initial delay (1 second)
+    };
+    
+    // Start the delayed initialization process
+    startScannerWithDelay();
   };
   
   // Handle QR code scan result
@@ -345,11 +390,15 @@ export default function Html5QrScanner({ event, onCheckInComplete }: QrCodeScann
                   className="w-full h-[300px]"
                 />
                 
-                {isSubmitting && (
+                {(isSubmitting || isInitializing) && (
                   <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                     <div className="bg-background p-4 rounded-md flex flex-col items-center gap-2">
                       <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                      <p className="text-sm font-medium">Processing QR code...</p>
+                      <p className="text-sm font-medium">
+                        {isSubmitting 
+                          ? "Processing QR code..." 
+                          : "Starting camera, please wait..."}
+                      </p>
                     </div>
                   </div>
                 )}
@@ -368,10 +417,19 @@ export default function Html5QrScanner({ event, onCheckInComplete }: QrCodeScann
                     <Button 
                       onClick={startScanner} 
                       className="w-full sm:w-auto"
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || isInitializing}
                     >
-                      <Camera className="mr-2 h-4 w-4" />
-                      Start QR Scanner
+                      {isInitializing ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Initializing...
+                        </>
+                      ) : (
+                        <>
+                          <Camera className="mr-2 h-4 w-4" />
+                          Start QR Scanner
+                        </>
+                      )}
                     </Button>
                     <Button
                       onClick={() => setUseManualInput(!useManualInput)}
@@ -425,10 +483,19 @@ export default function Html5QrScanner({ event, onCheckInComplete }: QrCodeScann
                     <Button 
                       onClick={startScanner} 
                       className="w-full sm:w-auto"
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || isInitializing}
                     >
-                      <Camera className="mr-2 h-4 w-4" />
-                      Scan Another QR Code
+                      {isInitializing ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Initializing...
+                        </>
+                      ) : (
+                        <>
+                          <Camera className="mr-2 h-4 w-4" />
+                          Scan Another QR Code
+                        </>
+                      )}
                     </Button>
                     <Button
                       onClick={resetScanner}
