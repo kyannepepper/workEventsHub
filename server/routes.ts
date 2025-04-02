@@ -330,7 +330,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             actualQrCode = urlData;
           }
         }
-      } catch (e) {
+      } catch (e: any) {
         log(`Not a valid URL: ${e.message}`, "routes");
       }
       
@@ -367,7 +367,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               log(`No matching registration found for parsed data`, "routes");
             }
           }
-        } catch (e) {
+        } catch (e: any) {
           log(`Failed to parse QR code as JSON: ${e.message}`, "routes");
           // Not JSON, use the raw string
         }
@@ -394,10 +394,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Process the check-in
-      const updatedRegistration = await storage.checkInRegistration(registration.qrCode);
-      log(`Successfully checked in registration ${updatedRegistration.id}`, "routes");
-      res.json(updatedRegistration);
-    } catch (error) {
+      // Make sure qrCode exists
+      if (registration.qrCode) {
+        const updatedRegistration = await storage.checkInRegistration(registration.qrCode);
+        log(`Successfully checked in registration ${updatedRegistration.id}`, "routes");
+        res.json(updatedRegistration);
+      } else {
+        throw new Error("Registration has no QR code");
+      }
+    } catch (error: any) {
       log(`Check-in error: ${error}`, "routes");
       res.status(400).json({ 
         error: "Failed to process check-in",
