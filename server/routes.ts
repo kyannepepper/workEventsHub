@@ -319,11 +319,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Normal QR code processing for real data
       let actualQrCode = qrCode;
       
+      // First, try to extract URL from QR code (common with QR scanner libraries)
+      // Some QR scanners return URLs like "https://example.com/?data=ABC123"
+      try {
+        if (qrCode.startsWith('http')) {
+          const url = new URL(qrCode);
+          const urlData = url.searchParams.get('data') || url.searchParams.get('code');
+          if (urlData) {
+            log(`Extracted data from URL: ${urlData}`, "routes");
+            actualQrCode = urlData;
+          }
+        }
+      } catch (e) {
+        log(`Not a valid URL: ${e.message}`, "routes");
+      }
+      
       // Check if the QR code is a JSON string
-      if (typeof qrCode === 'string' && qrCode.trim().startsWith('{') && qrCode.trim().endsWith('}')) {
+      if (typeof actualQrCode === 'string' && 
+          (actualQrCode.trim().startsWith('{') && actualQrCode.trim().endsWith('}')) || 
+          (actualQrCode.trim().startsWith('[') && actualQrCode.trim().endsWith(']'))) {
         try {
           // Try to parse as JSON object
-          const parsedData = JSON.parse(qrCode);
+          const parsedData = JSON.parse(actualQrCode);
           log(`QR code parsed as JSON: ${JSON.stringify(parsedData)}`, "routes");
           
           // Handle special case where the JSON contains event and user information
@@ -384,7 +401,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       log(`Check-in error: ${error}`, "routes");
       res.status(400).json({ 
         error: "Failed to process check-in",
-        debug: { message: error.message }
+        debug: { message: error.message, stack: error.stack }
       });
     }
   });

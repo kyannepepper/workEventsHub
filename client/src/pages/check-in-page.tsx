@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import JSQRScanner from "@/components/jsqr-scanner";
+import SimpleQrScanner from "@/components/simple-qr-scanner";
 
 export default function CheckInPage() {
   const { user } = useAuth();
@@ -114,7 +114,7 @@ export default function CheckInPage() {
           </Card>
         ) : (
           selectedEvent && (
-            <JSQRScanner 
+            <SimpleQrScanner 
               event={selectedEvent} 
               onCheckInComplete={handleCheckInComplete} 
             />
