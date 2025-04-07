@@ -3,17 +3,15 @@ import {
   CheckCircle2, 
   XCircle, 
   User, 
-  X, 
   AlertCircle,
-  Mail, 
   Phone,
   Users,
-  Baby, // Use Baby icon instead of Child (which doesn't exist)
+  Baby,
   Calendar,
   CheckCheck
 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
-import { Registration } from '@shared/schema';
+import { Registration, Attendee } from '@shared/schema';
 import { Button } from './button';
 
 interface ScanNotificationProps {
@@ -37,26 +35,28 @@ export const ScanNotification = ({
   event,
   onClose 
 }: ScanNotificationProps) => {
-  // Define participant type for TypeScript
-  interface Participant {
-    name: string;
-    isMinor: boolean;
-    waiverSigned?: boolean;
-  }
-
-  // Parse the additional participants if they exist
-  const additionalParticipants = React.useMemo<Participant[]>(() => {
-    if (registration?.additionalParticipants) {
+  // Parse the attendees from the registration
+  const attendees = React.useMemo<Attendee[]>(() => {
+    if (registration?.attendees) {
       try {
-        return JSON.parse(registration.additionalParticipants);
+        return JSON.parse(typeof registration.attendees === 'string' ? registration.attendees : '[]');
       } catch (e) {
+        console.error("Error parsing attendees", e);
         return [];
       }
     }
     return [];
-  }, [registration?.additionalParticipants]);
+  }, [registration?.attendees]);
 
-  const hasAdditionalParticipants = additionalParticipants.length > 0;
+  // Find the primary attendee
+  const primaryAttendee = attendees.find(a => a.isPrimary);
+  
+  // Get non-primary attendees
+  const additionalAttendees = attendees.filter(a => !a.isPrimary);
+  const hasAdditionalAttendees = additionalAttendees.length > 0;
+  
+  // Calculate total count
+  const totalAttendees = attendees.length;
   
   return (
     <div 
@@ -92,13 +92,8 @@ export const ScanNotification = ({
                   <User className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="font-medium text-base">{registration.name}</p>
+                  <p className="font-medium text-base">{primaryAttendee?.name || 'Unnamed Attendee'}</p>
                   <p className="text-xs text-white/80">{registration.email}</p>
-                  {registration.phone && (
-                    <p className="text-xs text-white/80 flex items-center mt-1">
-                      <Phone className="h-3 w-3 mr-1" /> {registration.phone}
-                    </p>
-                  )}
                 </div>
               </div>
               
@@ -106,8 +101,8 @@ export const ScanNotification = ({
                 <div className="flex items-center text-sm">
                   <Users className="h-4 w-4 mr-2 text-white/70" />
                   <span>
-                    {registration.participants && registration.participants > 1 
-                      ? `Group of ${registration.participants}` 
+                    {totalAttendees > 1 
+                      ? `Group of ${totalAttendees}` 
                       : 'Individual'}
                   </span>
                 </div>
@@ -146,26 +141,26 @@ export const ScanNotification = ({
               </div>
             </div>
 
-            {hasAdditionalParticipants && (
+            {hasAdditionalAttendees && (
               <div className="bg-white/10 rounded-md p-4 text-sm">
                 <h3 className="font-medium text-base mb-3 pb-2 border-b border-white/20">
-                  Additional Participants ({additionalParticipants.length})
+                  Additional Attendees ({additionalAttendees.length})
                 </h3>
                 <div className="space-y-3">
-                  {additionalParticipants.map((participant: Participant, index: number) => (
+                  {additionalAttendees.map((attendee, index) => (
                     <div key={index} className="pl-3 border-l-2 border-white/30">
                       <div className="flex items-center gap-2">
-                        {participant.isMinor ? (
+                        {attendee.type === 'minor' ? (
                           <Baby className="h-4 w-4 text-white/70" />
                         ) : (
                           <User className="h-4 w-4 text-white/70" />
                         )}
-                        <span className="font-medium">{participant.name}</span>
+                        <span className="font-medium">{attendee.name}</span>
                         <Badge variant="outline" className="text-xs ml-auto border-white/30 text-white/80">
-                          {participant.isMinor ? 'Minor' : 'Adult'}
+                          {attendee.type === 'minor' ? 'Minor' : 'Adult'}
                         </Badge>
                       </div>
-                      {participant.waiverSigned && (
+                      {attendee.waiverSigned && (
                         <div className="flex items-center mt-1 text-xs text-white/80">
                           <CheckCheck className="h-3 w-3 mr-1 text-white/70" />
                           Waiver signed

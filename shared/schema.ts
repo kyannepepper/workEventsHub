@@ -73,19 +73,14 @@ export const insertEventSchema = createInsertSchema(events)
 export const registrations = pgTable("registrations", {
   id: serial("id").primaryKey(),
   eventId: integer("event_id").notNull(),
-  name: text("name").notNull(),
   email: text("email").notNull(),
-  phone: text("phone"),
-  participants: integer("participants"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
   qrCode: text("qr_code").default(''),
   checkedIn: boolean("checked_in").notNull().default(false),
   checkedInAt: timestamp("checked_in_at"),
   waiverSigned: boolean("waiver_signed").notNull().default(false),
   waiverSignedAt: timestamp("waiver_signed_at"),
-  // Store additional participants as a JSON string
-  additionalParticipants: text("additional_participants"),
-  // Track if the main registrant is a minor
+  // Store attendees as a JSON array of objects
+  attendees: text("attendees").notNull(),
   isMinor: boolean("is_minor").default(false)
 });
 
@@ -95,9 +90,18 @@ export const insertRegistrationSchema = createInsertSchema(registrations)
     checkedIn: true,
     checkedInAt: true,
     waiverSigned: true,
-    waiverSignedAt: true,
-    createdAt: true
+    waiverSignedAt: true
   });
+
+// Define the attendee type
+export const attendeeSchema = z.object({
+  name: z.string(),
+  type: z.enum(['adult', 'minor']),
+  isPrimary: z.boolean(),
+  waiverSigned: z.boolean().optional()
+});
+
+export type Attendee = z.infer<typeof attendeeSchema>;
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type LoginData = z.infer<typeof loginSchema>;

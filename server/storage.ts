@@ -159,8 +159,15 @@ export class DatabaseStorage implements IStorage {
 
     const qrCodeValue = qrCode || crypto.randomBytes(16).toString('hex');
 
+    // Ensure attendees is always a JSON string
+    let attendeesStr = registration.attendees;
+    if (typeof attendeesStr !== 'string') {
+      attendeesStr = JSON.stringify(attendeesStr);
+    }
+
     const [newRegistration] = await db.insert(registrations).values({
       ...registration,
+      attendees: attendeesStr,
       qrCode: qrCodeValue
     }).returning();
 
@@ -170,13 +177,18 @@ export class DatabaseStorage implements IStorage {
 
   async getEventRegistrations(eventId: number): Promise<Registration[]> {
     log(`Getting registrations for event ${eventId}`, "storage");
-    const eventRegistrations = await db
-      .select()
-      .from(registrations)
-      .where(eq(registrations.eventId, eventId));
+    try {
+      const eventRegistrations = await db
+        .select()
+        .from(registrations)
+        .where(eq(registrations.eventId, eventId));
 
-    log(`Found ${eventRegistrations.length} registrations for event ${eventId}`, "storage");
-    return eventRegistrations;
+      log(`Found ${eventRegistrations.length} registrations for event ${eventId}`, "storage");
+      return eventRegistrations;
+    } catch (error) {
+      log(`Error getting registrations for event ${eventId}: ${error}`, "storage");
+      throw error;
+    }
   }
 
   async checkInRegistration(qrCode: string): Promise<Registration> {
