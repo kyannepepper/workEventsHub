@@ -10,7 +10,8 @@ import {
   Loader2, 
   CheckCircle2,
   AlertCircle,
-  QrCode
+  QrCode,
+  User
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -649,23 +650,42 @@ export default function Html5QrScanner({ event, onCheckInComplete }: QrCodeScann
                   
                   {scanResult.registration && (
                     <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded">
-                      <h4 className="text-sm font-medium text-green-800 mb-2">Registration Details:</h4>
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="bg-green-100 p-2 rounded-full">
+                          <CheckCircle2 className="h-5 w-5 text-green-600" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-medium text-green-800">
+                            Attendee Checked In Successfully!
+                          </h4>
+                          <p className="text-xs text-green-700">
+                            {new Date().toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-2 mb-3">
+                        <div className="flex flex-col items-center gap-1 p-2 bg-white/60 rounded-md text-center">
+                          <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center">
+                            <User className="h-6 w-6 text-primary" />
+                          </div>
+                          <p className="font-semibold text-sm mt-1">{scanResult.registration.name || "Not provided"}</p>
+                          <p className="text-xs text-muted-foreground">{scanResult.registration.email || "No email"}</p>
+                          {scanResult.registration.phone && (
+                            <p className="text-xs text-muted-foreground">{scanResult.registration.phone}</p>
+                          )}
+                          {scanResult.registration.participants && scanResult.registration.participants > 1 && (
+                            <div className="mt-1 bg-primary/5 px-2 py-1 rounded-full text-xs">
+                              Group of {scanResult.registration.participants} participants
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
                       <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div>
-                          <p className="font-semibold">Name:</p>
-                          <p>{scanResult.registration.name || "Not provided"}</p>
-                        </div>
-                        <div>
-                          <p className="font-semibold">Email:</p>
-                          <p>{scanResult.registration.email || "Not provided"}</p>
-                        </div>
                         <div>
                           <p className="font-semibold">Registration ID:</p>
                           <p>{scanResult.registration.id}</p>
-                        </div>
-                        <div>
-                          <p className="font-semibold">QR Code:</p>
-                          <p className="break-all">{scanResult.registration.qrCode}</p>
                         </div>
                         <div>
                           <p className="font-semibold">Event ID:</p>
@@ -677,6 +697,17 @@ export default function Html5QrScanner({ event, onCheckInComplete }: QrCodeScann
                             ? new Date(scanResult.registration.checkedInAt).toLocaleString()
                             : "Just now"}</p>
                         </div>
+                        <div>
+                          <p className="font-semibold">Waiver Signed:</p>
+                          <p>{scanResult.registration.waiverSigned 
+                            ? "Yes" 
+                            : event.waiver ? "No" : "Not Required"}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-3 flex flex-col gap-1 text-xs">
+                        <p className="font-semibold">QR Code:</p>
+                        <p className="p-1 bg-black/5 rounded break-all">{scanResult.registration.qrCode}</p>
                       </div>
                     </div>
                   )}

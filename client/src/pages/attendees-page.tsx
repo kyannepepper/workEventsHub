@@ -1,7 +1,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { Event, Registration } from "@shared/schema";
-import { Loader2, Check, X, Search } from "lucide-react";
+import { Loader2, Check, X, Search, ChevronDown, ChevronRight, Users, User, UserRound } from "lucide-react";
 import { DashboardLayout } from "@/components/ui/dashboard-layout";
 import React, { useState } from "react";
 import { format } from "date-fns";
@@ -172,36 +172,112 @@ export default function AttendeesPage() {
                     </TableHeader>
                     <TableBody>
                       {filteredRegistrations?.map((registration) => (
-                        <TableRow key={registration.id}>
-                          <TableCell className="font-medium">{registration.name}</TableCell>
-                          <TableCell>{registration.email}</TableCell>
-                          <TableCell>
-                            {registration.waiverSigned ? (
-                              <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
-                                <Check className="h-3 w-3 mr-1" />
-                                Signed
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
-                                <X className="h-3 w-3 mr-1" />
-                                Not Signed
-                              </Badge>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {registration.checkedIn ? (
-                              <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
-                                <Check className="h-3 w-3 mr-1" />
-                                Checked In
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-muted-foreground">
-                                <X className="h-3 w-3 mr-1" />
-                                Not Checked In
-                              </Badge>
-                            )}
-                          </TableCell>
-                        </TableRow>
+                        <React.Fragment key={registration.id}>
+                          {/* Main Registrant */}
+                          <TableRow>
+                            <TableCell className="font-medium flex items-center gap-2">
+                              {registration.participants && registration.participants > 1 ? (
+                                <Users className="h-4 w-4 text-muted-foreground" />
+                              ) : (
+                                <UserRound className="h-4 w-4 text-muted-foreground" />
+                              )}
+                              {registration.name}
+                              {registration.participants && registration.participants > 1 && (
+                                <Badge variant="outline" className="ml-2">
+                                  Group of {registration.participants}
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>{registration.email}</TableCell>
+                            <TableCell>
+                              {registration.waiverSigned ? (
+                                <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+                                  <Check className="h-3 w-3 mr-1" />
+                                  Signed
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className={
+                                  selectedEventId && events?.find(e => e.id === Number(selectedEventId))?.waiver 
+                                    ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-100" 
+                                    : "bg-blue-100 text-blue-800 hover:bg-blue-100"
+                                }>
+                                  {selectedEventId && events?.find(e => e.id === Number(selectedEventId))?.waiver ? (
+                                    <>
+                                      <X className="h-3 w-3 mr-1" />
+                                      Not Signed
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Check className="h-3 w-3 mr-1" />
+                                      Not Required
+                                    </>
+                                  )}
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {registration.checkedIn ? (
+                                <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+                                  <Check className="h-3 w-3 mr-1" />
+                                  Checked In
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-muted-foreground">
+                                  <X className="h-3 w-3 mr-1" />
+                                  Not Checked In
+                                </Badge>
+                              )}
+                            </TableCell>
+                          </TableRow>
+
+                          {/* Mock minor participants for display - in a real app this would be actual data */}
+                          {registration.participants && registration.participants > 1 && (
+                            <>
+                              {/* Create mock minor participants for display */}
+                              {Array.from({ length: registration.participants - 1 }).map((_, i) => (
+                                <TableRow key={`minor-${registration.id}-${i}`} className="bg-muted/30">
+                                  <TableCell className="pl-8 font-normal text-sm text-muted-foreground flex items-center gap-2">
+                                    <User className="h-3 w-3 text-muted-foreground" />
+                                    <span>Minor participant #{i + 1}</span>
+                                  </TableCell>
+                                  <TableCell className="text-sm text-muted-foreground">
+                                    <span className="italic">Under guardian</span>
+                                  </TableCell>
+                                  <TableCell>
+                                    {registration.waiverSigned ? (
+                                      <Badge variant="outline" className="bg-green-50 text-green-700 hover:bg-green-50 text-xs">
+                                        Included in guardian waiver
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="outline" className={
+                                        selectedEventId && events?.find(e => e.id === Number(selectedEventId))?.waiver 
+                                          ? "bg-yellow-50 text-yellow-700 hover:bg-yellow-50 text-xs" 
+                                          : "bg-blue-50 text-blue-700 hover:bg-blue-50 text-xs"
+                                      }>
+                                        {selectedEventId && events?.find(e => e.id === Number(selectedEventId))?.waiver ? (
+                                          <>Guardian waiver missing</>
+                                        ) : (
+                                          <>Not required</>
+                                        )}
+                                      </Badge>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    {registration.checkedIn ? (
+                                      <Badge variant="outline" className="bg-green-50 text-green-700 hover:bg-green-50 text-xs">
+                                        Checked in with guardian
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="text-muted-foreground text-xs">
+                                        Not checked in
+                                      </Badge>
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </>
+                          )}
+                        </React.Fragment>
                       ))}
                     </TableBody>
                   </Table>
