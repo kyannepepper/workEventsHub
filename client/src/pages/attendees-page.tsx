@@ -1,7 +1,10 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { Event, Registration } from "@shared/schema";
-import { Loader2, Check, X, Search, ChevronDown, ChevronRight, Users, User, UserRound } from "lucide-react";
+import { 
+  Loader2, Check, X, Search, ChevronDown, ChevronRight, 
+  Users, User, UserRound, Baby, UserPlus
+} from "lucide-react";
 import { DashboardLayout } from "@/components/ui/dashboard-layout";
 import React, { useState } from "react";
 import { format } from "date-fns";
@@ -29,11 +32,25 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { 
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+
+// Interface for parsed participants
+interface Participant {
+  name: string;
+  isMinor: boolean;
+  waiverSigned?: boolean;
+}
 
 export default function AttendeesPage() {
   const { user } = useAuth();
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
 
   // Fetch all events
   const { data: events, isLoading: eventsLoading } = useQuery<Event[]>({
@@ -51,10 +68,50 @@ export default function AttendeesPage() {
     enabled: !!selectedEventId,
   });
   
-  // Let's add console logging for direct debugging
-  console.log("Selected Event ID:", selectedEventId);
-  console.log("Registrations:", registrations);
-  console.log("Registrations Error:", registrationsError);
+  // Toggle the expanded state of a row
+  const toggleExpandRow = (registrationId: number) => {
+    setExpandedRows(prev => ({
+      ...prev,
+      [registrationId]: !prev[registrationId]
+    }));
+  };
+  
+  // Parse additional participants from registration
+  const parseParticipants = (registration: Registration): Participant[] => {
+    if (!registration.additionalParticipants) return [];
+    try {
+      const participants = JSON.parse(registration.additionalParticipants);
+      return Array.isArray(participants) ? participants : [];
+    } catch (e) {
+      console.error("Error parsing participants:", e);
+      return [];
+    }
+  };
+  
+  // Count adults and minors in a registration
+  const countParticipants = (registration: Registration) => {
+    // Start with the main registrant (always an adult)
+    let adults = 1;
+    let minors = 0;
+    
+    const participants = parseParticipants(registration);
+    
+    // Count from additional participants
+    participants.forEach(p => {
+      if (p.isMinor) {
+        minors++;
+      } else {
+        adults++;
+      }
+    });
+    
+    // Fallback to participants count if we don't have detailed info
+    if (participants.length === 0 && registration.participants && registration.participants > 1) {
+      adults = registration.participants; // Assume all adults if we don't have detailed info
+    }
+    
+    return { adults, minors };
+  };
 
   // Filter registrations based on search query
   const filteredRegistrations = registrations?.filter(registration => {
@@ -165,6 +222,8 @@ export default function AttendeesPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Name</TableHead>
+                        <TableHead>Adults</TableHead>
+                        <TableHead>Minors</TableHead>
                         <TableHead>Email</TableHead>
                         <TableHead>Waiver Status</TableHead>
                         <TableHead>Check-in Status</TableHead>
@@ -174,20 +233,50 @@ export default function AttendeesPage() {
                       {filteredRegistrations?.map((registration) => (
                         <React.Fragment key={registration.id}>
                           {/* Main Registrant */}
-                          <TableRow>
+                          <TableRow className={
+                            (registration.additionalParticipants || 
+                             (registration.participants && registration.participants > 1)) 
+                              ? "cursor-pointer hover:bg-muted/50" 
+                              : ""
+                          }
+                          onClick={() => {
+                            if (registration.additionalParticipants || 
+                                (registration.participants && registration.participants > 1)) {
+                              toggleExpandRow(registration.id);
+                            }
+                          }}>
                             <TableCell className="font-medium flex items-center gap-2">
-                              {registration.participants && registration.participants > 1 ? (
-                                <Users className="h-4 w-4 text-muted-foreground" />
+                              {/* Icon with dropdown indicator if has additional participants */}
+                              {(registration.additionalParticipants || 
+                                (registration.participants && registration.participants > 1)) ? (
+                                <div className="flex items-center">
+                                  {expandedRows[registration.id] ? (
+                                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                  ) : (
+                                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                  )}
+                                  <Users className="h-4 w-4 text-muted-foreground ml-1" />
+                                </div>
                               ) : (
                                 <UserRound className="h-4 w-4 text-muted-foreground" />
                               )}
                               {registration.name}
-                              {registration.participants && registration.participants > 1 && (
-                                <Badge variant="outline" className="ml-2">
-                                  Group of {registration.participants}
-                                </Badge>
-                              )}
                             </TableCell>
+                            
+                            {/* Adults column */}
+                            <TableCell>
+                              <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                                {countParticipants(registration).adults}
+                              </Badge>
+                            </TableCell>
+                            
+                            {/* Minors column */}
+                            <TableCell>
+                              <Badge variant="outline" className="bg-purple-50 text-purple-700">
+                                {countParticipants(registration).minors}
+                              </Badge>
+                            </TableCell>
+                            
                             <TableCell>{registration.email}</TableCell>
                             <TableCell>
                               {registration.waiverSigned ? (
@@ -231,36 +320,67 @@ export default function AttendeesPage() {
                           </TableRow>
 
                           {/* Display actual additional participants */}
-                          {registration.additionalParticipants && (
+                          {registration.additionalParticipants && expandedRows[registration.id] && (
                             <>
                               {(() => {
                                 try {
-                                  const additionalParticipants = JSON.parse(registration.additionalParticipants);
-                                  if (Array.isArray(additionalParticipants) && additionalParticipants.length > 0) {
+                                  const additionalParticipants = parseParticipants(registration);
+                                  if (additionalParticipants.length > 0) {
                                     return additionalParticipants.map((participant, i) => (
                                       <TableRow key={`participant-${registration.id}-${i}`} className="bg-muted/30">
                                         <TableCell className="pl-8 font-normal text-sm flex items-center gap-2">
                                           {participant.isMinor ? (
-                                            <>
-                                              <Badge className="h-5 bg-purple-100 text-purple-800 hover:bg-purple-100">Minor</Badge>
+                                            <div className="flex items-center gap-2">
+                                              <Baby className="h-4 w-4 text-purple-800" />
                                               <span>{participant.name || `Minor participant #${i + 1}`}</span>
-                                            </>
+                                            </div>
                                           ) : (
-                                            <>
-                                              <Badge className="h-5 bg-blue-100 text-blue-800 hover:bg-blue-100">Adult</Badge>
+                                            <div className="flex items-center gap-2">
+                                              <UserPlus className="h-4 w-4 text-blue-800" />
                                               <span>{participant.name || `Additional adult #${i + 1}`}</span>
-                                            </>
+                                            </div>
                                           )}
                                         </TableCell>
-                                        <TableCell className="text-sm text-muted-foreground">
-                                          <span className="italic">
-                                            {participant.isMinor ? 'Under guardian' : 'Additional participant'}
+                                        
+                                        {/* Adults column - empty for additional adults, 0 for minors */}
+                                        <TableCell>
+                                          {!participant.isMinor && (
+                                            <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                                              1
+                                            </Badge>
+                                          )}
+                                          {participant.isMinor && (
+                                            <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                                              0
+                                            </Badge>
+                                          )}
+                                        </TableCell>
+                                        
+                                        {/* Minors column - empty for adults, 1 for minors */}
+                                        <TableCell>
+                                          {participant.isMinor && (
+                                            <Badge variant="outline" className="bg-purple-50 text-purple-700">
+                                              1
+                                            </Badge>
+                                          )}
+                                          {!participant.isMinor && (
+                                            <Badge variant="outline" className="bg-purple-50 text-purple-700">
+                                              0
+                                            </Badge>
+                                          )}
+                                        </TableCell>
+                                        
+                                        <TableCell>
+                                          <span className="text-xs text-muted-foreground italic">
+                                            {participant.isMinor ? 'Under guardian' : 'Part of group'}
                                           </span>
                                         </TableCell>
+                                        
                                         <TableCell>
                                           {participant.waiverSigned ? (
                                             <Badge variant="outline" className="bg-green-50 text-green-700 hover:bg-green-50 text-xs">
-                                              Waiver signed
+                                              <Check className="h-3 w-3 mr-1" />
+                                              Signed
                                             </Badge>
                                           ) : (
                                             <Badge variant="outline" className={
@@ -276,6 +396,7 @@ export default function AttendeesPage() {
                                             </Badge>
                                           )}
                                         </TableCell>
+                                        
                                         <TableCell>
                                           {registration.checkedIn ? (
                                             <Badge variant="outline" className="bg-green-50 text-green-700 hover:bg-green-50 text-xs">
@@ -300,20 +421,42 @@ export default function AttendeesPage() {
                           )}
 
                           {/* Display fallback for participants count without detailed info */}
-                          {(!registration.additionalParticipants && registration.participants && registration.participants > 1) && (
+                          {(!registration.additionalParticipants && 
+                            registration.participants && 
+                            registration.participants > 1 && 
+                            expandedRows[registration.id]) && (
                             <>
                               {Array.from({ length: (registration.participants || 1) - 1 }).map((_, i) => (
                                 <TableRow key={`participant-fallback-${registration.id}-${i}`} className="bg-muted/30">
-                                  <TableCell className="pl-8 font-normal text-sm text-muted-foreground flex items-center gap-2">
-                                    <User className="h-3 w-3 text-muted-foreground" />
-                                    <span>Additional participant #{i + 1}</span>
+                                  <TableCell className="pl-8 font-normal text-sm flex items-center gap-2">
+                                    <div className="flex items-center gap-2">
+                                      <UserPlus className="h-4 w-4 text-blue-800" />
+                                      <span>Additional participant #{i + 1}</span>
+                                    </div>
                                   </TableCell>
-                                  <TableCell className="text-sm text-muted-foreground">
-                                    <span className="italic">Part of group</span>
+                                  
+                                  {/* Adults column - default to 1 for fallback */}
+                                  <TableCell>
+                                    <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                                      1
+                                    </Badge>
                                   </TableCell>
+                                  
+                                  {/* Minors column - default to 0 for fallback */}
+                                  <TableCell>
+                                    <Badge variant="outline" className="bg-purple-50 text-purple-700">
+                                      0
+                                    </Badge>
+                                  </TableCell>
+                                  
+                                  <TableCell>
+                                    <span className="text-xs text-muted-foreground italic">Part of group</span>
+                                  </TableCell>
+                                  
                                   <TableCell>
                                     {registration.waiverSigned ? (
                                       <Badge variant="outline" className="bg-green-50 text-green-700 hover:bg-green-50 text-xs">
+                                        <Check className="h-3 w-3 mr-1" />
                                         Included in group waiver
                                       </Badge>
                                     ) : (
@@ -330,6 +473,7 @@ export default function AttendeesPage() {
                                       </Badge>
                                     )}
                                   </TableCell>
+                                  
                                   <TableCell>
                                     {registration.checkedIn ? (
                                       <Badge variant="outline" className="bg-green-50 text-green-700 hover:bg-green-50 text-xs">
