@@ -230,23 +230,91 @@ export default function AttendeesPage() {
                             </TableCell>
                           </TableRow>
 
-                          {/* Mock minor participants for display - in a real app this would be actual data */}
-                          {registration.participants && registration.participants > 1 && (
+                          {/* Display actual additional participants */}
+                          {registration.additionalParticipants && (
                             <>
-                              {/* Create mock minor participants for display */}
-                              {Array.from({ length: registration.participants - 1 }).map((_, i) => (
-                                <TableRow key={`minor-${registration.id}-${i}`} className="bg-muted/30">
+                              {(() => {
+                                try {
+                                  const additionalParticipants = JSON.parse(registration.additionalParticipants);
+                                  if (Array.isArray(additionalParticipants) && additionalParticipants.length > 0) {
+                                    return additionalParticipants.map((participant, i) => (
+                                      <TableRow key={`participant-${registration.id}-${i}`} className="bg-muted/30">
+                                        <TableCell className="pl-8 font-normal text-sm flex items-center gap-2">
+                                          {participant.isMinor ? (
+                                            <>
+                                              <Badge className="h-5 bg-purple-100 text-purple-800 hover:bg-purple-100">Minor</Badge>
+                                              <span>{participant.name || `Minor participant #${i + 1}`}</span>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Badge className="h-5 bg-blue-100 text-blue-800 hover:bg-blue-100">Adult</Badge>
+                                              <span>{participant.name || `Additional adult #${i + 1}`}</span>
+                                            </>
+                                          )}
+                                        </TableCell>
+                                        <TableCell className="text-sm text-muted-foreground">
+                                          <span className="italic">
+                                            {participant.isMinor ? 'Under guardian' : 'Additional participant'}
+                                          </span>
+                                        </TableCell>
+                                        <TableCell>
+                                          {participant.waiverSigned ? (
+                                            <Badge variant="outline" className="bg-green-50 text-green-700 hover:bg-green-50 text-xs">
+                                              Waiver signed
+                                            </Badge>
+                                          ) : (
+                                            <Badge variant="outline" className={
+                                              selectedEventId && events?.find(e => e.id === Number(selectedEventId))?.needsWaiver 
+                                                ? "bg-yellow-50 text-yellow-700 hover:bg-yellow-50 text-xs" 
+                                                : "bg-blue-50 text-blue-700 hover:bg-blue-50 text-xs"
+                                            }>
+                                              {selectedEventId && events?.find(e => e.id === Number(selectedEventId))?.needsWaiver ? (
+                                                <>Waiver missing</>
+                                              ) : (
+                                                <>Not required</>
+                                              )}
+                                            </Badge>
+                                          )}
+                                        </TableCell>
+                                        <TableCell>
+                                          {registration.checkedIn ? (
+                                            <Badge variant="outline" className="bg-green-50 text-green-700 hover:bg-green-50 text-xs">
+                                              Checked in with group
+                                            </Badge>
+                                          ) : (
+                                            <Badge variant="outline" className="text-muted-foreground text-xs">
+                                              Not checked in
+                                            </Badge>
+                                          )}
+                                        </TableCell>
+                                      </TableRow>
+                                    ));
+                                  }
+                                  return null;
+                                } catch (e) {
+                                  console.error("Error parsing additional participants:", e);
+                                  return null;
+                                }
+                              })()}
+                            </>
+                          )}
+
+                          {/* Display fallback for participants count without detailed info */}
+                          {(!registration.additionalParticipants && registration.participants && registration.participants > 1) && (
+                            <>
+                              {Array.from({ length: (registration.participants || 1) - 1 }).map((_, i) => (
+                                <TableRow key={`participant-fallback-${registration.id}-${i}`} className="bg-muted/30">
                                   <TableCell className="pl-8 font-normal text-sm text-muted-foreground flex items-center gap-2">
                                     <User className="h-3 w-3 text-muted-foreground" />
-                                    <span>Minor participant #{i + 1}</span>
+                                    <span>Additional participant #{i + 1}</span>
                                   </TableCell>
                                   <TableCell className="text-sm text-muted-foreground">
-                                    <span className="italic">Under guardian</span>
+                                    <span className="italic">Part of group</span>
                                   </TableCell>
                                   <TableCell>
                                     {registration.waiverSigned ? (
                                       <Badge variant="outline" className="bg-green-50 text-green-700 hover:bg-green-50 text-xs">
-                                        Included in guardian waiver
+                                        Included in group waiver
                                       </Badge>
                                     ) : (
                                       <Badge variant="outline" className={
@@ -255,7 +323,7 @@ export default function AttendeesPage() {
                                           : "bg-blue-50 text-blue-700 hover:bg-blue-50 text-xs"
                                       }>
                                         {selectedEventId && events?.find(e => e.id === Number(selectedEventId))?.needsWaiver ? (
-                                          <>Guardian waiver missing</>
+                                          <>Group waiver missing</>
                                         ) : (
                                           <>Not required</>
                                         )}
@@ -265,7 +333,7 @@ export default function AttendeesPage() {
                                   <TableCell>
                                     {registration.checkedIn ? (
                                       <Badge variant="outline" className="bg-green-50 text-green-700 hover:bg-green-50 text-xs">
-                                        Checked in with guardian
+                                        Checked in with group
                                       </Badge>
                                     ) : (
                                       <Badge variant="outline" className="text-muted-foreground text-xs">

@@ -82,7 +82,11 @@ export const registrations = pgTable("registrations", {
   checkedIn: boolean("checked_in").notNull().default(false),
   checkedInAt: timestamp("checked_in_at"),
   waiverSigned: boolean("waiver_signed").notNull().default(false),
-  waiverSignedAt: timestamp("waiver_signed_at")
+  waiverSignedAt: timestamp("waiver_signed_at"),
+  // Store additional participants as a JSON string
+  additionalParticipants: text("additional_participants"),
+  // Track if the main registrant is a minor
+  isMinor: boolean("is_minor").default(false)
 });
 
 export const insertRegistrationSchema = createInsertSchema(registrations)
