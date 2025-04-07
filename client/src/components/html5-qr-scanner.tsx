@@ -31,6 +31,8 @@ export default function Html5QrScanner({ event, onCheckInComplete }: QrCodeScann
     message: string;
     scannedData?: string;
     registration?: Registration;
+    error?: string;
+    errorDetail?: any;
   } | null>(null);
   const [checkedInAttendees, setCheckedInAttendees] = useState<Registration[]>([]);
   const [isLoadingAttendees, setIsLoadingAttendees] = useState(false);
@@ -101,15 +103,42 @@ export default function Html5QrScanner({ event, onCheckInComplete }: QrCodeScann
       console.error("Failed to check in sample registration:", error);
       
       let errorMessage = "Failed to check in";
+      let errorDetail = null;
+      
+      // Try to extract detailed error information from the response
       if (error instanceof Error) {
         errorMessage = error.message;
+        
+        // Check if this is an API error with more details
+        if ('cause' in error && error.cause && typeof error.cause === 'object') {
+          const cause = error.cause as any;
+          
+          if (cause.data) {
+            try {
+              // Try to extract the detailed debug information from the error response
+              const errorData = cause.data;
+              if (typeof errorData === 'object') {
+                errorDetail = errorData;
+                
+                // If there's a specific error message, use it
+                if (errorData.error && typeof errorData.error === 'string') {
+                  errorMessage = errorData.error;
+                }
+              }
+            } catch (e) {
+              console.error("Error parsing API error details:", e);
+            }
+          }
+        }
       }
       
       // Show error
       setScanResult({
         success: false,
         message: errorMessage,
-        scannedData: qrCodeValue
+        scannedData: qrCodeValue,
+        error: errorMessage,
+        errorDetail: errorDetail
       });
       
       toast({
@@ -280,16 +309,43 @@ export default function Html5QrScanner({ event, onCheckInComplete }: QrCodeScann
       // Refresh the attendees list
       loadAttendees();
     } catch (error) {
+      console.error("Check-in error:", error);
       let errorMessage = "Failed to check in attendee";
+      let errorDetail = null;
       
+      // Try to extract detailed error information from the response
       if (error instanceof Error) {
         errorMessage = error.message;
+        
+        // Check if this is an API error with more details
+        if ('cause' in error && error.cause && typeof error.cause === 'object') {
+          const cause = error.cause as any;
+          
+          if (cause.data) {
+            try {
+              // Try to extract the detailed debug information from the error response
+              const errorData = cause.data;
+              if (typeof errorData === 'object') {
+                errorDetail = errorData;
+                
+                // If there's a specific error message, use it
+                if (errorData.error && typeof errorData.error === 'string') {
+                  errorMessage = errorData.error;
+                }
+              }
+            } catch (e) {
+              console.error("Error parsing API error details:", e);
+            }
+          }
+        }
       }
       
       setScanResult({
         success: false,
         message: errorMessage,
-        scannedData: qrCodeData
+        scannedData: qrCodeData,
+        error: errorMessage,
+        errorDetail: errorDetail
       });
       
       toast({
@@ -468,11 +524,17 @@ export default function Html5QrScanner({ event, onCheckInComplete }: QrCodeScann
                       <div className="bg-muted/50 p-3 rounded-md text-xs">
                         <p className="font-medium mb-1">Sample QR Code Values for Testing:</p>
                         <ul className="space-y-1 list-disc pl-5">
-                          <li><button className="text-primary underline cursor-pointer" onClick={() => setManualCode("REG-EVENT1-1234")}>REG-EVENT1-1234</button> (Valid format)</li>
-                          <li><button className="text-primary underline cursor-pointer" onClick={() => setManualCode("EVENT1-TICKET-5678")}>EVENT1-TICKET-5678</button> (Valid format)</li>
-                          <li><button className="text-primary underline cursor-pointer" onClick={() => setManualCode("QRCODE-TEST-9012")}>QRCODE-TEST-9012</button> (Valid format)</li>
+                          <li><button className="text-primary underline cursor-pointer" onClick={() => setManualCode("REG-EVENT1-1234")}>REG-EVENT1-1234</button> (Test format)</li>
+                          <li><button className="text-primary underline cursor-pointer" onClick={() => setManualCode("EVENT1-TICKET-5678")}>EVENT1-TICKET-5678</button> (Test format)</li>
+                          <li><button className="text-primary underline cursor-pointer" onClick={() => setManualCode("QRCODE-TEST-9012")}>QRCODE-TEST-9012</button> (Test format)</li>
+                          <li><button className="text-primary underline cursor-pointer" onClick={() => setManualCode(String(event.id))}>"{event.id}"</button> (ID format - Try using the actual event ID)</li>
                         </ul>
                         <p className="mt-2 italic">Click any sample value to insert it into the input field.</p>
+                        <p className="mt-1 text-[10px] text-muted-foreground">
+                          Note: The server expects QR codes that match registration records. 
+                          Test codes will be accepted and create mock records. For real registrations, 
+                          the QR code usually needs to match the code stored in the database.
+                        </p>
                       </div>
                     </div>
                   )}
@@ -531,22 +593,90 @@ export default function Html5QrScanner({ event, onCheckInComplete }: QrCodeScann
                     {scanResult.message}
                   </p>
                   
-                  {/* Debug information */}
+                  {/* Debug information - Enhanced with more detail */}
                   <div className="mt-2 p-3 bg-gray-50 rounded border text-xs font-mono overflow-x-auto">
-                    <p className="font-semibold mb-1">Debug - Scanned Data:</p>
-                    <p className="break-all">{scanResult.scannedData}</p>
+                    <p className="font-semibold mb-1">Debug Information:</p>
+                    
+                    <div className="space-y-3">
+                      <div>
+                        <h4 className="text-xs font-bold">Raw Scanned Data:</h4>
+                        <p className="break-all whitespace-pre-wrap bg-black/5 p-1 rounded">{scanResult.scannedData}</p>
+                      </div>
+
+                      <div>
+                        <h4 className="text-xs font-bold">Data Format Analysis:</h4>
+                        <ul className="space-y-1 pl-4 list-disc">
+                          <li>Data Type: {typeof scanResult.scannedData}</li>
+                          <li>Length: {scanResult.scannedData?.length || 0} characters</li>
+                          <li>Appears to be URL: {scanResult.scannedData?.startsWith('http') ? 'Yes' : 'No'}</li>
+                          <li>Appears to be JSON: {
+                            (scanResult.scannedData?.trim().startsWith('{') && scanResult.scannedData?.trim().endsWith('}')) ||
+                            (scanResult.scannedData?.trim().startsWith('[') && scanResult.scannedData?.trim().endsWith(']'))
+                              ? 'Yes' : 'No'
+                          }</li>
+                          <li>Contains "EVENT": {scanResult.scannedData?.includes('EVENT') ? 'Yes' : 'No'}</li>
+                          <li>Contains "REG": {scanResult.scannedData?.includes('REG') ? 'Yes' : 'No'}</li>
+                          <li>Contains numbers: {/\d/.test(scanResult.scannedData || '') ? 'Yes' : 'No'}</li>
+                        </ul>
+                      </div>
+
+                      <div>
+                        <h4 className="text-xs font-bold">API Request Info:</h4>
+                        <ul className="space-y-1 pl-4 list-disc">
+                          <li>Event ID: {event.id}</li>
+                          <li>Processing Type: {
+                            scanResult.scannedData?.startsWith('REG-EVENT') || 
+                            scanResult.scannedData?.startsWith('EVENT') || 
+                            scanResult.scannedData?.startsWith('QRCODE-TEST')
+                              ? 'Test QR Code' : 'Regular QR Code'
+                          }</li>
+                        </ul>
+                      </div>
+                                            
+                      {scanResult.error && (
+                        <div>
+                          <h4 className="text-xs font-bold">Error Details:</h4>
+                          <p className="text-red-600">{scanResult.error}</p>
+                          {scanResult.errorDetail && (
+                            <pre className="mt-1 bg-black/5 p-1 rounded text-[10px] overflow-x-auto">
+                              {JSON.stringify(scanResult.errorDetail, null, 2)}
+                            </pre>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   
                   {scanResult.registration && (
-                    <div className="mt-3">
-                      <p className="text-sm font-medium">{scanResult.registration.name}</p>
-                      <p className="text-xs text-muted-foreground">{scanResult.registration.email}</p>
-                      <div className="mt-1">
-                        <Badge variant="outline" className="text-xs">
-                          {scanResult.registration.checkedInAt 
+                    <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded">
+                      <h4 className="text-sm font-medium text-green-800 mb-2">Registration Details:</h4>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <p className="font-semibold">Name:</p>
+                          <p>{scanResult.registration.name || "Not provided"}</p>
+                        </div>
+                        <div>
+                          <p className="font-semibold">Email:</p>
+                          <p>{scanResult.registration.email || "Not provided"}</p>
+                        </div>
+                        <div>
+                          <p className="font-semibold">Registration ID:</p>
+                          <p>{scanResult.registration.id}</p>
+                        </div>
+                        <div>
+                          <p className="font-semibold">QR Code:</p>
+                          <p className="break-all">{scanResult.registration.qrCode}</p>
+                        </div>
+                        <div>
+                          <p className="font-semibold">Event ID:</p>
+                          <p>{scanResult.registration.eventId}</p>
+                        </div>
+                        <div>
+                          <p className="font-semibold">Check-in Time:</p>
+                          <p>{scanResult.registration.checkedInAt 
                             ? new Date(scanResult.registration.checkedInAt).toLocaleString()
-                            : "Just now"}
-                        </Badge>
+                            : "Just now"}</p>
+                        </div>
                       </div>
                     </div>
                   )}
