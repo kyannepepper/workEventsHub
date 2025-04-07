@@ -11,11 +11,14 @@ import {
   CheckCircle2,
   AlertCircle,
   QrCode,
-  User
+  User,
+  Users,
+  Copy
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Html5Qrcode } from "html5-qrcode";
+import { ScanNotification } from "@/components/ui/scan-notification";
 
 interface QrCodeScannerProps {
   event: Event;
@@ -140,12 +143,6 @@ export default function Html5QrScanner({ event, onCheckInComplete }: QrCodeScann
         scannedData: qrCodeValue,
         error: errorMessage,
         errorDetail: errorDetail
-      });
-      
-      toast({
-        title: "Check-in Failed",
-        description: errorMessage,
-        variant: "destructive",
       });
       
       return null;
@@ -348,12 +345,6 @@ export default function Html5QrScanner({ event, onCheckInComplete }: QrCodeScann
         error: errorMessage,
         errorDetail: errorDetail
       });
-      
-      toast({
-        title: "Check-in Failed",
-        description: errorMessage,
-        variant: "destructive",
-      });
     } finally {
       setIsSubmitting(false);
     }
@@ -416,332 +407,270 @@ export default function Html5QrScanner({ event, onCheckInComplete }: QrCodeScann
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <QrCode className="h-5 w-5" />
-          QR Code Scanner for {event.title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-6">
-          {isScanning ? (
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="text-sm font-medium">QR Code Scanner</h3>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={stopScanner}
-                  disabled={isSubmitting}
-                >
-                  <X className="mr-1 h-4 w-4" />
-                  Stop Scanner
-                </Button>
-              </div>
-              
-              {/* QR Scanner container */}
-              <div className="relative border rounded-md overflow-hidden">
-                <div 
-                  ref={scannerContainerRef}
-                  className="w-full h-[300px]"
-                />
+    <>
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <QrCode className="h-5 w-5" />
+            QR Code Scanner for {event.title}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            {isScanning ? (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-sm font-medium">QR Code Scanner</h3>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={stopScanner}
+                    disabled={isSubmitting}
+                  >
+                    <X className="mr-1 h-4 w-4" />
+                    Stop Scanner
+                  </Button>
+                </div>
                 
-                {(isSubmitting || isInitializing) && (
-                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                    <div className="bg-background p-4 rounded-md flex flex-col items-center gap-2">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                      <p className="text-sm font-medium">
-                        {isSubmitting 
-                          ? "Processing QR code..." 
-                          : "Starting camera, please wait..."}
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {!scanResult ? (
-                <div className="flex flex-col items-center space-y-4 p-4 text-center">
-                  <Camera className="h-16 w-16 text-primary" />
-                  <p className="text-muted-foreground max-w-md">
-                    Click the button below to start scanning QR codes.
-                    Make sure to allow camera access when prompted.
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                    <Button 
-                      onClick={startScanner} 
-                      className="w-full sm:w-auto"
-                      disabled={isSubmitting || isInitializing}
-                    >
-                      {isInitializing ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Initializing...
-                        </>
-                      ) : (
-                        <>
-                          <Camera className="mr-2 h-4 w-4" />
-                          Start QR Scanner
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      onClick={() => setUseManualInput(!useManualInput)}
-                      variant="outline"
-                      className="w-full sm:w-auto"
-                    >
-                      {useManualInput ? "Hide Manual Entry" : "Manual Entry"}
-                    </Button>
-                  </div>
+                {/* QR Scanner container */}
+                <div className="relative border rounded-md overflow-hidden">
+                  <div 
+                    ref={scannerContainerRef}
+                    className="w-full h-[300px]"
+                  />
                   
-                  {useManualInput && (
-                    <div className="w-full max-w-md space-y-4 mt-2 text-left border-t pt-4">
-                      <h3 className="text-sm font-medium">Manual QR Code Entry</h3>
-                      <p className="text-xs text-muted-foreground">
-                        Since camera access might be restricted in this environment, you can manually enter a QR code value below.
-                      </p>
-                      
-                      <div className="grid w-full items-center gap-1.5">
-                        <p className="text-sm">Enter the QR code value:</p>
-                        <div className="flex gap-2">
-                          <Input
-                            type="text"
-                            value={manualCode}
-                            onChange={(e) => setManualCode(e.target.value)}
-                            placeholder="Enter QR code value"
-                          />
-                          <Button
-                            onClick={handleManualSubmit}
-                            disabled={isSubmitting || !manualCode.trim()}
-                          >
-                            Submit
-                          </Button>
-                        </div>
-                      </div>
-                      
-                      <div className="bg-muted/50 p-3 rounded-md text-xs">
-                        <p className="font-medium mb-1">Sample QR Code Values for Testing:</p>
-                        <ul className="space-y-1 list-disc pl-5">
-                          <li><button className="text-primary underline cursor-pointer" onClick={() => setManualCode("REG-EVENT1-1234")}>REG-EVENT1-1234</button> (Test format)</li>
-                          <li><button className="text-primary underline cursor-pointer" onClick={() => setManualCode("EVENT1-TICKET-5678")}>EVENT1-TICKET-5678</button> (Test format)</li>
-                          <li><button className="text-primary underline cursor-pointer" onClick={() => setManualCode("QRCODE-TEST-9012")}>QRCODE-TEST-9012</button> (Test format)</li>
-                          <li><button className="text-primary underline cursor-pointer" onClick={() => setManualCode(String(event.id))}>"{event.id}"</button> (ID format - Try using the actual event ID)</li>
-                        </ul>
-                        <p className="mt-2 italic">Click any sample value to insert it into the input field.</p>
-                        <p className="mt-1 text-[10px] text-muted-foreground">
-                          Note: The server expects QR codes that match registration records. 
-                          Test codes will be accepted and create mock records. For real registrations, 
-                          the QR code usually needs to match the code stored in the database.
+                  {(isSubmitting || isInitializing) && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                      <div className="bg-background p-4 rounded-md flex flex-col items-center gap-2">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        <p className="text-sm font-medium">
+                          {isSubmitting 
+                            ? "Processing QR code..." 
+                            : "Starting camera, please wait..."}
                         </p>
                       </div>
                     </div>
                   )}
                 </div>
-              ) : (
-                <div className="flex flex-col items-center space-y-4">
-                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                    <Button 
-                      onClick={startScanner} 
-                      className="w-full sm:w-auto"
-                      disabled={isSubmitting || isInitializing}
-                    >
-                      {isInitializing ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Initializing...
-                        </>
-                      ) : (
-                        <>
-                          <Camera className="mr-2 h-4 w-4" />
-                          Scan Another QR Code
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      onClick={resetScanner}
-                      variant="outline"
-                      className="w-full sm:w-auto"
-                    >
-                      Reset
-                    </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {!scanResult ? (
+                  <div className="flex flex-col items-center space-y-4 p-4 text-center">
+                    <Camera className="h-16 w-16 text-primary" />
+                    <p className="text-muted-foreground max-w-md">
+                      Click the button below to start scanning QR codes.
+                      Make sure to allow camera access when prompted.
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                      <Button 
+                        onClick={startScanner} 
+                        className="w-full sm:w-auto"
+                        disabled={isSubmitting || isInitializing}
+                      >
+                        {isInitializing ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Initializing...
+                          </>
+                        ) : (
+                          <>
+                            <Camera className="mr-2 h-4 w-4" />
+                            Start Scanner
+                          </>
+                        )}
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setUseManualInput(true)}
+                        className="w-full sm:w-auto"
+                      >
+                        Enter Code Manually
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          )}
-          
-          {/* Result display with debug information */}
-          {scanResult && (
-            <div className={`p-4 rounded-md ${
-              scanResult.success ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"
-            }`}>
-              <div className="flex items-start gap-3">
-                {scanResult.success ? (
-                  <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5" />
                 ) : (
-                  <AlertCircle className="h-5 w-5 text-red-500 mt-0.5" />
-                )}
-                <div className="w-full">
-                  <p className={`font-medium ${
-                    scanResult.success ? "text-green-700" : "text-red-700"
-                  }`}>
-                    {scanResult.success ? "QR code scanned" : "Scan failed"}
-                  </p>
-                  <p className="text-sm mt-1">
-                    {scanResult.message}
-                  </p>
-                  
-                  {/* Debug information - Enhanced with more detail */}
-                  <div className="mt-2 p-3 bg-gray-50 rounded border text-xs font-mono overflow-x-auto">
-                    <p className="font-semibold mb-1">Debug Information:</p>
-                    
-                    <div className="space-y-3">
-                      <div>
-                        <h4 className="text-xs font-bold">Raw Scanned Data:</h4>
-                        <p className="break-all whitespace-pre-wrap bg-black/5 p-1 rounded">{scanResult.scannedData}</p>
-                      </div>
-
-                      <div>
-                        <h4 className="text-xs font-bold">Data Format Analysis:</h4>
-                        <ul className="space-y-1 pl-4 list-disc">
-                          <li>Data Type: {typeof scanResult.scannedData}</li>
-                          <li>Length: {scanResult.scannedData?.length || 0} characters</li>
-                          <li>Appears to be URL: {scanResult.scannedData?.startsWith('http') ? 'Yes' : 'No'}</li>
-                          <li>Appears to be JSON: {
-                            (scanResult.scannedData?.trim().startsWith('{') && scanResult.scannedData?.trim().endsWith('}')) ||
-                            (scanResult.scannedData?.trim().startsWith('[') && scanResult.scannedData?.trim().endsWith(']'))
-                              ? 'Yes' : 'No'
-                          }</li>
-                          <li>Contains "EVENT": {scanResult.scannedData?.includes('EVENT') ? 'Yes' : 'No'}</li>
-                          <li>Contains "REG": {scanResult.scannedData?.includes('REG') ? 'Yes' : 'No'}</li>
-                          <li>Contains numbers: {/\d/.test(scanResult.scannedData || '') ? 'Yes' : 'No'}</li>
-                        </ul>
-                      </div>
-
-                      <div>
-                        <h4 className="text-xs font-bold">API Request Info:</h4>
-                        <ul className="space-y-1 pl-4 list-disc">
-                          <li>Event ID: {event.id}</li>
-                          <li>Processing Type: {
-                            scanResult.scannedData?.startsWith('REG-EVENT') || 
-                            scanResult.scannedData?.startsWith('EVENT') || 
-                            scanResult.scannedData?.startsWith('QRCODE-TEST')
-                              ? 'Test QR Code' : 'Regular QR Code'
-                          }</li>
-                        </ul>
-                      </div>
-                                            
-                      {scanResult.error && (
-                        <div>
-                          <h4 className="text-xs font-bold">Error Details:</h4>
-                          <p className="text-red-600">{scanResult.error}</p>
-                          {scanResult.errorDetail && (
-                            <pre className="mt-1 bg-black/5 p-1 rounded text-[10px] overflow-x-auto">
-                              {JSON.stringify(scanResult.errorDetail, null, 2)}
-                            </pre>
+                  <div className="space-y-4">
+                    {scanResult && (
+                      <div className={`p-4 rounded-md ${
+                        scanResult.success && scanResult.registration
+                          ? "bg-green-50 border border-green-100"
+                          : "bg-red-50 border border-red-100"
+                      }`}>
+                        <div className="flex items-start gap-2">
+                          {scanResult.success && scanResult.registration ? (
+                            <CheckCircle2 className="h-5 w-5 text-green-500 mt-1" />
+                          ) : (
+                            <AlertCircle className="h-5 w-5 text-red-500 mt-1" />
                           )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {scanResult.registration && (
-                    <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded">
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="bg-green-100 p-2 rounded-full">
-                          <CheckCircle2 className="h-5 w-5 text-green-600" />
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-medium text-green-800">
-                            Attendee Checked In Successfully!
-                          </h4>
-                          <p className="text-xs text-green-700">
-                            {new Date().toLocaleString()}
-                          </p>
-                        </div>
-                      </div>
+                          
+                          <div className="space-y-2 flex-1">
+                            <h3 className="font-medium">
+                              {scanResult.success && scanResult.registration
+                                ? "Check-in Successful!"
+                                : "Check-in Failed"}
+                            </h3>
+                            <p className="text-sm text-muted-foreground">{scanResult.message}</p>
+                            
+                            {scanResult.registration && (
+                              <div className="mt-3 bg-white p-3 rounded-md shadow-sm">
+                                <div className="flex items-center mb-2">
+                                  <div className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center mr-3">
+                                    <User className="h-5 w-5 text-primary" />
+                                  </div>
+                                  <div>
+                                    <p className="font-semibold text-sm mt-1">{scanResult.registration.name || "Not provided"}</p>
+                                    <p className="text-xs text-muted-foreground">{scanResult.registration.email || "No email"}</p>
+                                    {scanResult.registration.phone && (
+                                      <p className="text-xs text-muted-foreground">{scanResult.registration.phone}</p>
+                                    )}
+                                    {scanResult.registration.participants && scanResult.registration.participants > 1 && (
+                                      <div className="mt-1 bg-primary/5 px-2 py-1 rounded-full text-xs">
+                                        Group of {scanResult.registration.participants} participants
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
 
-                      <div className="flex flex-col gap-2 mb-3">
-                        <div className="flex flex-col items-center gap-1 p-2 bg-white/60 rounded-md text-center">
-                          <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center">
-                            <User className="h-6 w-6 text-primary" />
-                          </div>
-                          <p className="font-semibold text-sm mt-1">{scanResult.registration.name || "Not provided"}</p>
-                          <p className="text-xs text-muted-foreground">{scanResult.registration.email || "No email"}</p>
-                          {scanResult.registration.phone && (
-                            <p className="text-xs text-muted-foreground">{scanResult.registration.phone}</p>
-                          )}
-                          {scanResult.registration.participants && scanResult.registration.participants > 1 && (
-                            <div className="mt-1 bg-primary/5 px-2 py-1 rounded-full text-xs">
-                              Group of {scanResult.registration.participants} participants
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  <div>
+                                    <p className="font-semibold">Registration ID:</p>
+                                    <p>{scanResult.registration.id}</p>
+                                  </div>
+                                  <div>
+                                    <p className="font-semibold">Event ID:</p>
+                                    <p>{scanResult.registration.eventId}</p>
+                                  </div>
+                                  <div>
+                                    <p className="font-semibold">Check-in Time:</p>
+                                    <p>{scanResult.registration.checkedInAt 
+                                      ? new Date(scanResult.registration.checkedInAt).toLocaleString()
+                                      : "Just now"}</p>
+                                  </div>
+                                  <div>
+                                    <p className="font-semibold">Waiver Signed:</p>
+                                    <p>{scanResult.registration.waiverSigned 
+                                      ? "Yes" 
+                                      : event.waiver ? "No" : "Not Required"}</p>
+                                  </div>
+                                </div>
+                                
+                                <div className="mt-3 flex flex-col gap-1 text-xs">
+                                  <p className="font-semibold">QR Code:</p>
+                                  <p className="p-1 bg-black/5 rounded break-all">{scanResult.registration.qrCode}</p>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {scanResult.error && scanResult.errorDetail && (
+                              <div className="mt-3 bg-red-50 p-3 rounded-md text-sm">
+                                <p className="font-medium">Debug Information:</p>
+                                <pre className="mt-1 p-2 bg-white rounded text-xs overflow-x-auto">
+                                  {typeof scanResult.errorDetail === 'object' 
+                                    ? JSON.stringify(scanResult.errorDetail, null, 2)
+                                    : scanResult.errorDetail}
+                                </pre>
+                              </div>
+                            )}
+                            
+                            <div className="mt-4 flex gap-2">
+                              <Button 
+                                onClick={resetScanner} 
+                                variant="outline" 
+                                size="sm"
+                              >
+                                Scan Again
+                              </Button>
+                              {useManualInput && (
+                                <Button 
+                                  onClick={() => setUseManualInput(false)} 
+                                  variant="outline" 
+                                  size="sm"
+                                >
+                                  Cancel Manual Entry
+                                </Button>
+                              )}
                             </div>
-                          )}
+                          </div>
                         </div>
                       </div>
-
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div>
-                          <p className="font-semibold">Registration ID:</p>
-                          <p>{scanResult.registration.id}</p>
-                        </div>
-                        <div>
-                          <p className="font-semibold">Event ID:</p>
-                          <p>{scanResult.registration.eventId}</p>
-                        </div>
-                        <div>
-                          <p className="font-semibold">Check-in Time:</p>
-                          <p>{scanResult.registration.checkedInAt 
-                            ? new Date(scanResult.registration.checkedInAt).toLocaleString()
-                            : "Just now"}</p>
-                        </div>
-                        <div>
-                          <p className="font-semibold">Waiver Signed:</p>
-                          <p>{scanResult.registration.waiverSigned 
-                            ? "Yes" 
-                            : event.waiver ? "No" : "Not Required"}</p>
+                    )}
+                    
+                    {useManualInput && (
+                      <div className="border rounded-md p-4">
+                        <h3 className="text-sm font-medium mb-2">Manual QR Code Entry</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Enter the QR code data manually if the scanner is not working.
+                        </p>
+                        <div className="flex gap-2">
+                          <Input
+                            value={manualCode}
+                            onChange={(e) => setManualCode(e.target.value)}
+                            placeholder="Enter QR code data..."
+                            disabled={isSubmitting}
+                          />
+                          <Button 
+                            onClick={handleManualSubmit}
+                            disabled={!manualCode.trim() || isSubmitting}
+                          >
+                            {isSubmitting ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              "Submit"
+                            )}
+                          </Button>
                         </div>
                       </div>
-                      
-                      <div className="mt-3 flex flex-col gap-1 text-xs">
-                        <p className="font-semibold">QR Code:</p>
-                        <p className="p-1 bg-black/5 rounded break-all">{scanResult.registration.qrCode}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Checked-in attendees list */}
+            <div className="border-t pt-4">
+              <h3 className="text-sm font-medium mb-2">Checked-in Attendees</h3>
+              <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                {isLoadingAttendees ? (
+                  <div className="flex items-center justify-center p-4">
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    <span className="text-sm">Loading...</span>
+                  </div>
+                ) : checkedInAttendees.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No attendees checked in yet</p>
+                ) : (
+                  checkedInAttendees.map(registration => (
+                    <div key={registration.id} className="flex items-center p-2 bg-gray-50 rounded-md">
+                      <CheckCircle2 className="h-4 w-4 text-green-500 mr-2" />
+                      <div>
+                        <p className="text-sm font-medium">{registration.name}</p>
+                        <p className="text-xs text-muted-foreground">{registration.email}</p>
                       </div>
                     </div>
-                  )}
-                </div>
+                  ))
+                )}
               </div>
             </div>
-          )}
-          
-          {/* Checked-in attendees list */}
-          <div className="border-t pt-4">
-            <h3 className="text-sm font-medium mb-2">Checked-in Attendees</h3>
-            <div className="space-y-1 max-h-[200px] overflow-y-auto">
-              {isLoadingAttendees ? (
-                <div className="flex items-center justify-center p-4">
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  <span className="text-sm">Loading...</span>
-                </div>
-              ) : checkedInAttendees.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No attendees checked in yet</p>
-              ) : (
-                checkedInAttendees.map(registration => (
-                  <div key={registration.id} className="flex items-center p-2 bg-gray-50 rounded-md">
-                    <CheckCircle2 className="h-4 w-4 text-green-500 mr-2" />
-                    <div>
-                      <p className="text-sm font-medium">{registration.name}</p>
-                      <p className="text-xs text-muted-foreground">{registration.email}</p>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      {/* Popup notification for scan results */}
+      {scanResult && (
+        <ScanNotification
+          type={scanResult.success && scanResult.registration ? 'success' : 'error'}
+          message={scanResult.message}
+          registration={scanResult.registration}
+          errorDetail={scanResult.errorDetail ? 
+            typeof scanResult.errorDetail === 'object' 
+              ? JSON.stringify(scanResult.errorDetail, null, 2)
+              : String(scanResult.errorDetail)
+            : undefined
+          }
+          event={event}
+          onClose={() => setScanResult(null)}
+        />
+      )}
+    </>
   );
 }

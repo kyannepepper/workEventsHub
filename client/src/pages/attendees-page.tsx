@@ -197,11 +197,11 @@ export default function AttendeesPage() {
                                 </Badge>
                               ) : (
                                 <Badge variant="outline" className={
-                                  selectedEventId && events?.find(e => e.id === Number(selectedEventId))?.waiver 
+                                  selectedEventId && events?.find(e => e.id === Number(selectedEventId))?.needsWaiver 
                                     ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-100" 
                                     : "bg-blue-100 text-blue-800 hover:bg-blue-100"
                                 }>
-                                  {selectedEventId && events?.find(e => e.id === Number(selectedEventId))?.waiver ? (
+                                  {selectedEventId && events?.find(e => e.id === Number(selectedEventId))?.needsWaiver ? (
                                     <>
                                       <X className="h-3 w-3 mr-1" />
                                       Not Signed
@@ -250,11 +250,11 @@ export default function AttendeesPage() {
                                       </Badge>
                                     ) : (
                                       <Badge variant="outline" className={
-                                        selectedEventId && events?.find(e => e.id === Number(selectedEventId))?.waiver 
+                                        selectedEventId && events?.find(e => e.id === Number(selectedEventId))?.needsWaiver 
                                           ? "bg-yellow-50 text-yellow-700 hover:bg-yellow-50 text-xs" 
                                           : "bg-blue-50 text-blue-700 hover:bg-blue-50 text-xs"
                                       }>
-                                        {selectedEventId && events?.find(e => e.id === Number(selectedEventId))?.waiver ? (
+                                        {selectedEventId && events?.find(e => e.id === Number(selectedEventId))?.needsWaiver ? (
                                           <>Guardian waiver missing</>
                                         ) : (
                                           <>Not required</>

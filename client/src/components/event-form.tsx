@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useState } from "react";
 import { format } from "date-fns";
 import { FileUpload } from "@/components/ui/file-upload";
@@ -323,12 +324,46 @@ export default function EventForm({
 
         <FormField
           control={form.control}
+          name="needsWaiver"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+              <FormControl>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    id="needs-waiver"
+                  />
+                  <label
+                    htmlFor="needs-waiver"
+                    className="text-sm font-medium leading-none cursor-pointer"
+                  >
+                    This event requires a waiver
+                  </label>
+                </div>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
           name="waiver"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Waiver Text (Optional)</FormLabel>
               <FormControl>
-                <Textarea {...field} rows={4} value={field.value || ''} />
+                <Textarea 
+                  {...field} 
+                  rows={4} 
+                  value={field.value || ''} 
+                  disabled={!form.watch("needsWaiver")} 
+                  placeholder={form.watch("needsWaiver") 
+                    ? "Enter waiver text here..." 
+                    : "Enable 'This event requires a waiver' to add waiver text"
+                  }
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

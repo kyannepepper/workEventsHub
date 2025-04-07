@@ -72,6 +72,7 @@ export default function EditEvent() {
                 startTime: event.startTime,
                 endTime: event.endTime,
                 waiver: event.waiver || undefined,
+                needsWaiver: event.needsWaiver,
                 images: event.images || [],
                 category: 
                   (event.category === "Community" || 

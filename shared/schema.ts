@@ -23,6 +23,7 @@ export const events = pgTable("events", {
   capacity: integer("capacity").notNull(),
   spotsLeft: integer("spots_left").notNull(),
   waiver: text("waiver"),
+  needsWaiver: boolean("needs_waiver").notNull().default(false),
   images: text("images").array(),
   createdBy: integer("created_by").notNull(),
   category: text("category").notNull(),
