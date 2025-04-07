@@ -81,6 +81,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         endTime: new Date(req.body.endTime),
         images: [] as string[],
       };
+      
+      // Convert needsWaiver from string to boolean if needed
+      if (bodyToValidate.needsWaiver !== undefined) {
+        if (bodyToValidate.needsWaiver === 'true' || bodyToValidate.needsWaiver === '1') {
+          bodyToValidate.needsWaiver = true;
+        } else if (bodyToValidate.needsWaiver === 'false' || bodyToValidate.needsWaiver === '0' || bodyToValidate.needsWaiver === '') {
+          bodyToValidate.needsWaiver = false;
+        }
+      }
 
       // Handle uploaded files
       const uploadedFiles = req.files as Express.Multer.File[];
@@ -172,6 +181,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     if (bodyToValidate.capacity && typeof bodyToValidate.capacity === 'string') {
       bodyToValidate.capacity = parseInt(bodyToValidate.capacity, 10);
+    }
+    
+    // Convert needsWaiver from string to boolean if needed
+    if (bodyToValidate.needsWaiver !== undefined) {
+      if (bodyToValidate.needsWaiver === 'true' || bodyToValidate.needsWaiver === '1') {
+        bodyToValidate.needsWaiver = true;
+      } else if (bodyToValidate.needsWaiver === 'false' || bodyToValidate.needsWaiver === '0' || bodyToValidate.needsWaiver === '') {
+        bodyToValidate.needsWaiver = false;
+      }
     }
 
     const parsed = insertEventSchema.partial().safeParse(bodyToValidate);
@@ -281,7 +299,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     log(`================================`, "routes");
 
     // Store debugging info that will be returned in case of error
-    const debugInfo = {
+    type ProcessingStep = {
+      step: string;
+      [key: string]: any;
+    };
+    
+    interface DebugInfo {
+      original: {
+        qrCode: string | undefined;
+        eventId: any;
+        dataType: string;
+        length: number;
+      };
+      processing: ProcessingStep[];
+      registration?: {
+        id: number;
+        eventId: number;
+        email: string;
+        name: string;
+        qrCode: string | null;
+        alreadyCheckedIn: boolean;
+        checkedInAt: Date | null;
+      };
+    }
+    
+    const debugInfo: DebugInfo = {
       original: {
         qrCode: qrCode ? `(${typeof qrCode}) ${qrCode.slice(0, 50)}${qrCode.length > 50 ? '...' : ''}` : undefined,
         eventId: eventId,
