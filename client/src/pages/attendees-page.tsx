@@ -103,25 +103,6 @@ export default function AttendeesPage() {
       return [];
     }
 
-    // SPECIAL CASE - Hardcoded for Tom's registration to show Tommy
-    // This is a temporary solution to fix the immediate issue
-    if (registration.email === "tom@utah.gov") {
-      return [
-        {
-          name: "Tom",
-          type: "adult",
-          isPrimary: true,
-          waiverSigned: registration.waiverSigned,
-        },
-        {
-          name: "Tommy",
-          type: "minor",
-          isPrimary: false,
-          waiverSigned: registration.waiverSigned,
-        },
-      ];
-    }
-
     try {
       // Based on the database inspection, the data is stored as a string with
       // double-escaped JSON objects - we need to parse each entry separately
@@ -172,11 +153,20 @@ export default function AttendeesPage() {
               return attendeeObj;
             }
 
-            // Convert to the correct format
+            // Convert to the correct format with explicit type handling
+            let attendeeType: "minor" | "adult";
+            
+            if (attendeeObj.type === "minor" || attendeeObj.type === "adult") {
+              attendeeType = attendeeObj.type;
+            } else if (attendeeObj.isMinor === true) {
+              attendeeType = "minor";
+            } else {
+              attendeeType = "adult";
+            }
+            
             return {
               name: attendeeObj.name || "Unnamed Attendee",
-              type:
-                attendeeObj.type || (attendeeObj.isMinor ? "minor" : "adult"),
+              type: attendeeType,
               isPrimary: !!attendeeObj.isPrimary,
               waiverSigned: !!attendeeObj.waiverSigned,
             };
@@ -232,19 +222,28 @@ export default function AttendeesPage() {
     let adults = 0;
     let minors = 0;
 
-    const attendees = parseParticipants(registration);
-    // Count by attendee type
-    attendees.forEach((attendee) => {
-      console.log(attendee.type);
-      if (attendee.type === "adult") {
-        adults++;
-      } else if (attendee.type === "minor") {
-        minors++;
-      }
-    });
+    // Only try counting if attendees are available
+    try {
+      const attendees = parseParticipants(registration);
+      
+      // Count by attendee type
+      attendees.forEach((attendee) => {
+        // Simple check using optional chaining for safety
+        if (attendee?.type === "minor") {
+          minors++;
+        } else {
+          // Default to adult if type is missing or not 'minor'
+          adults++;
+        }
+      });
 
-    // If we don't have any attendees, assume at least one adult (for backward compatibility)
-    if (attendees.length === 0) {
+      // If we don't have any attendees, assume at least one adult (for backward compatibility)
+      if (attendees.length === 0) {
+        adults = 1;
+      }
+    } catch (e) {
+      // If there's any error in counting, default to one adult
+      console.error("Error counting participants:", e);
       adults = 1;
     }
 
