@@ -235,6 +235,7 @@ export default function AttendeesPage() {
     const attendees = parseParticipants(registration);
     // Count by attendee type
     attendees.forEach((attendee) => {
+      console.log(attendee.type);
       if (attendee.type === "adult") {
         adults++;
       } else if (attendee.type === "minor") {
@@ -379,7 +380,7 @@ export default function AttendeesPage() {
                     </TableHeader>
                     <TableBody>
                       {filteredRegistrations?.map((registration) => (
-                        <div key={registration.id} className="contents">
+                        <React.Fragment key={registration.id}>
                           {/* Main Registrant */}
                           <TableRow
                             className={
@@ -511,7 +512,7 @@ export default function AttendeesPage() {
                                           className="bg-muted/30"
                                         >
                                           <TableCell className="pl-8 font-normal text-sm flex items-center gap-2">
-                                            {attendee.type === "minor" ? (
+                                            {attendee && attendee.type === "minor" ? (
                                               <div className="flex items-center gap-2">
                                                 <Baby className="h-4 w-4 text-purple-800" />
                                                 <span>
@@ -523,7 +524,7 @@ export default function AttendeesPage() {
                                               <div className="flex items-center gap-2">
                                                 <UserPlus className="h-4 w-4 text-blue-800" />
                                                 <span>
-                                                  {attendee.name ||
+                                                  {attendee && attendee.name ||
                                                     `Additional adult #${i + 1}`}
                                                 </span>
                                               </div>
@@ -536,7 +537,7 @@ export default function AttendeesPage() {
                                               variant="outline"
                                               className="bg-blue-50 text-blue-700"
                                             >
-                                              {attendee.type === "adult"
+                                              {attendee && attendee.type === "adult"
                                                 ? "1"
                                                 : "0"}
                                             </Badge>
@@ -548,7 +549,7 @@ export default function AttendeesPage() {
                                               variant="outline"
                                               className="bg-purple-50 text-purple-700"
                                             >
-                                              {attendee.type === "minor"
+                                              {attendee && attendee.type === "minor"
                                                 ? "1"
                                                 : "0"}
                                             </Badge>
@@ -556,14 +557,14 @@ export default function AttendeesPage() {
 
                                           <TableCell>
                                             <span className="text-xs text-muted-foreground italic">
-                                              {attendee.type === "minor"
+                                              {attendee && attendee.type === "minor"
                                                 ? "Under guardian"
                                                 : "Part of group"}
                                             </span>
                                           </TableCell>
 
                                           <TableCell>
-                                            {attendee.waiverSigned ? (
+                                            {attendee && attendee.waiverSigned ? (
                                               <Badge
                                                 variant="outline"
                                                 className="bg-green-50 text-green-700 hover:bg-green-50 text-xs"
@@ -633,7 +634,7 @@ export default function AttendeesPage() {
                           )}
 
                           {/* No additional fallback needed with new schema */}
-                        </div>
+                        </React.Fragment>
                       ))}
                     </TableBody>
                   </Table>
