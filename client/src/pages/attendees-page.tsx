@@ -228,11 +228,25 @@ export default function AttendeesPage() {
       
       // Count by attendee type
       attendees.forEach((attendee) => {
-        // Simple check using optional chaining for safety
-        if (attendee?.type === "minor") {
-          minors++;
-        } else {
-          // Default to adult if type is missing or not 'minor'
+        try {
+          // If attendee is still a string (as shown in logs), parse it
+          let attendeeObj = attendee;
+          if (typeof attendee === 'string') {
+            attendeeObj = JSON.parse(attendee);
+          }
+          
+          // Now check if it's a minor
+          if (attendeeObj?.type === "minor") {
+            console.log("Found a minor:", attendeeObj.name);
+            minors++;
+          } else {
+            // Default to adult if type is missing or not 'minor'
+            console.log("Found an adult:", attendeeObj.name);
+            adults++;
+          }
+        } catch (error) {
+          console.error("Error processing attendee:", error);
+          // Default to adult if we can't determine
           adults++;
         }
       });
@@ -511,23 +525,38 @@ export default function AttendeesPage() {
                                           className="bg-muted/30"
                                         >
                                           <TableCell className="pl-8 font-normal text-sm flex items-center gap-2">
-                                            {attendee && attendee.type === "minor" ? (
-                                              <div className="flex items-center gap-2">
-                                                <Baby className="h-4 w-4 text-purple-800" />
-                                                <span>
-                                                  {attendee.name ||
-                                                    `Minor attendee #${i + 1}`}
-                                                </span>
-                                              </div>
-                                            ) : (
-                                              <div className="flex items-center gap-2">
-                                                <UserPlus className="h-4 w-4 text-blue-800" />
-                                                <span>
-                                                  {attendee && attendee.name ||
-                                                    `Additional adult #${i + 1}`}
-                                                </span>
-                                              </div>
-                                            )}
+                                            {(() => {
+                                              try {
+                                                // If attendee is a string, parse it
+                                                let attendeeObj = attendee;
+                                                if (typeof attendee === 'string') {
+                                                  attendeeObj = JSON.parse(attendee);
+                                                }
+                                                
+                                                if (attendeeObj?.type === "minor") {
+                                                  return (
+                                                    <div className="flex items-center gap-2">
+                                                      <Baby className="h-4 w-4 text-purple-800" />
+                                                      <span>
+                                                        {attendeeObj.name || `Minor attendee #${i + 1}`}
+                                                      </span>
+                                                    </div>
+                                                  );
+                                                } else {
+                                                  return (
+                                                    <div className="flex items-center gap-2">
+                                                      <UserPlus className="h-4 w-4 text-blue-800" />
+                                                      <span>
+                                                        {attendeeObj.name || `Additional adult #${i + 1}`}
+                                                      </span>
+                                                    </div>
+                                                  );
+                                                }
+                                              } catch (error) {
+                                                console.error("Error displaying attendee:", error);
+                                                return <div>Error displaying attendee</div>;
+                                              }
+                                            })()}
                                           </TableCell>
 
                                           {/* Adults column */}
@@ -536,9 +565,17 @@ export default function AttendeesPage() {
                                               variant="outline"
                                               className="bg-blue-50 text-blue-700"
                                             >
-                                              {attendee && attendee.type === "adult"
-                                                ? "1"
-                                                : "0"}
+                                              {(() => {
+                                                try {
+                                                  let attendeeObj = attendee;
+                                                  if (typeof attendee === 'string') {
+                                                    attendeeObj = JSON.parse(attendee);
+                                                  }
+                                                  return attendeeObj?.type === "adult" ? "1" : "0";
+                                                } catch (e) {
+                                                  return "0";
+                                                }
+                                              })()}
                                             </Badge>
                                           </TableCell>
 
@@ -548,55 +585,84 @@ export default function AttendeesPage() {
                                               variant="outline"
                                               className="bg-purple-50 text-purple-700"
                                             >
-                                              {attendee && attendee.type === "minor"
-                                                ? "1"
-                                                : "0"}
+                                              {(() => {
+                                                try {
+                                                  let attendeeObj = attendee;
+                                                  if (typeof attendee === 'string') {
+                                                    attendeeObj = JSON.parse(attendee);
+                                                  }
+                                                  return attendeeObj?.type === "minor" ? "1" : "0";
+                                                } catch (e) {
+                                                  return "0";
+                                                }
+                                              })()}
                                             </Badge>
                                           </TableCell>
 
                                           <TableCell>
                                             <span className="text-xs text-muted-foreground italic">
-                                              {attendee && attendee.type === "minor"
-                                                ? "Under guardian"
-                                                : "Part of group"}
+                                              {(() => {
+                                                try {
+                                                  let attendeeObj = attendee;
+                                                  if (typeof attendee === 'string') {
+                                                    attendeeObj = JSON.parse(attendee);
+                                                  }
+                                                  return attendeeObj?.type === "minor" 
+                                                    ? "Under guardian" 
+                                                    : "Part of group";
+                                                } catch (e) {
+                                                  return "Part of group";
+                                                }
+                                              })()}
                                             </span>
                                           </TableCell>
 
                                           <TableCell>
-                                            {attendee && attendee.waiverSigned ? (
-                                              <Badge
-                                                variant="outline"
-                                                className="bg-green-50 text-green-700 hover:bg-green-50 text-xs"
-                                              >
-                                                <Check className="h-3 w-3 mr-1" />
-                                                Signed
-                                              </Badge>
-                                            ) : (
-                                              <Badge
-                                                variant="outline"
-                                                className={
-                                                  selectedEventId &&
-                                                  events?.find(
-                                                    (e) =>
-                                                      e.id ===
-                                                      Number(selectedEventId),
-                                                  )?.needsWaiver
-                                                    ? "bg-yellow-50 text-yellow-700 hover:bg-yellow-50 text-xs"
-                                                    : "bg-blue-50 text-blue-700 hover:bg-blue-50 text-xs"
+                                            {(() => {
+                                              try {
+                                                let attendeeObj = attendee;
+                                                if (typeof attendee === 'string') {
+                                                  attendeeObj = JSON.parse(attendee);
                                                 }
-                                              >
-                                                {selectedEventId &&
-                                                events?.find(
-                                                  (e) =>
-                                                    e.id ===
-                                                    Number(selectedEventId),
-                                                )?.needsWaiver ? (
-                                                  <>Waiver missing</>
-                                                ) : (
-                                                  <>Not required</>
-                                                )}
-                                              </Badge>
-                                            )}
+                                                
+                                                if (attendeeObj.waiverSigned) {
+                                                  return (
+                                                    <Badge
+                                                      variant="outline"
+                                                      className="bg-green-50 text-green-700 hover:bg-green-50 text-xs"
+                                                    >
+                                                      <Check className="h-3 w-3 mr-1" />
+                                                      Signed
+                                                    </Badge>
+                                                  );
+                                                } else {
+                                                  const needsWaiver = selectedEventId && 
+                                                    events?.find(e => e.id === Number(selectedEventId))?.needsWaiver;
+                                                    
+                                                  return (
+                                                    <Badge
+                                                      variant="outline"
+                                                      className={needsWaiver
+                                                        ? "bg-yellow-50 text-yellow-700 hover:bg-yellow-50 text-xs"
+                                                        : "bg-blue-50 text-blue-700 hover:bg-blue-50 text-xs"
+                                                      }
+                                                    >
+                                                      {needsWaiver ? "Waiver missing" : "Not required"}
+                                                    </Badge>
+                                                  );
+                                                }
+                                              } catch (e) {
+                                                // Fallback for error cases
+                                                return (
+                                                  <Badge
+                                                    variant="outline" 
+                                                    className="bg-blue-50 text-blue-700 hover:bg-blue-50 text-xs"
+                                                  >
+                                                    Unknown
+                                                  </Badge>
+                                                );
+                                              }
+                                            })()}
                                           </TableCell>
 
                                           <TableCell>
