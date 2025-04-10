@@ -59,8 +59,8 @@ export const insertEventSchema = createInsertSchema(events)
       "Government",
       "Other"
     ]),
-    // Allow decimal prices but keep capacity as integer
-    price: z.number().nonnegative().multipleOf(0.01),
+    // Allow decimal prices with any precision
+    price: z.number().nonnegative(),
     capacity: z.number().int().positive(),
   })
   .omit({

@@ -49,22 +49,11 @@ export default function EventForm({
   const handleSubmit = (data: InsertEvent) => {
     console.log("Form data before submission:", data); // Debug log
     
-    // Force correct types for numeric values before submission
-    if (typeof data.capacity !== 'undefined') {
-      // Ensure capacity is a positive integer
-      const capacityValue = parseInt(String(data.capacity), 10);
-      data.capacity = !isNaN(capacityValue) && capacityValue > 0 ? capacityValue : 1;
-      console.log(`Final capacity value:`, data.capacity);
-    }
-    
-    if (typeof data.price !== 'undefined') {
-      // Ensure price is a proper decimal with 2 places
-      const priceValue = parseFloat(String(data.price));
-      data.price = !isNaN(priceValue) && priceValue >= 0 
-        ? Math.round(priceValue * 100) / 100 
-        : 0;
-      console.log(`Final price value:`, data.price);
-    }
+    // Preserve the exact numeric values the user entered
+    // Don't modify them further to ensure what they type is what gets saved
+    console.log("Submitting exact values as entered:");
+    console.log(`- Capacity: ${data.capacity}`);
+    console.log(`- Price: ${data.price}`);
     
     const formData = new FormData();
 
@@ -304,28 +293,16 @@ export default function EventForm({
                     type="number"
                     {...field}
                     onChange={(e) => {
-                      const value = e.target.value === '' ? '0' : e.target.value;
-                      // Parse as float and round to 2 decimal places
-                      const numValue = parseFloat(value);
-                      if (!isNaN(numValue) && numValue >= 0) {
-                        const roundedValue = Math.round(numValue * 100) / 100;
-                        console.log("Setting price to:", roundedValue);
-                        field.onChange(roundedValue);
-                      } else {
-                        console.log("Invalid price, defaulting to 0");
-                        field.onChange(0);
-                      }
-                    }}
-                    onBlur={(e) => {
-                      // Ensure on blur that we have a valid non-negative number
-                      const value = parseFloat(String(field.value));
-                      if (isNaN(value) || value < 0) {
+                      // Only validate that it's a number, but use exact value
+                      const value = e.target.value;
+                      if (value === '' || isNaN(parseFloat(value))) {
                         field.onChange(0);
                       } else {
-                        // Round to 2 decimal places
-                        field.onChange(Math.round(value * 100) / 100);
+                        // Use the exact value entered, don't round
+                        field.onChange(parseFloat(value));
                       }
                     }}
+                    onBlur={field.onBlur} // Don't do any special processing on blur
                     value={field.value ?? ''}
                     min="0"
                     step="0.01"
@@ -347,25 +324,16 @@ export default function EventForm({
                     type="number"
                     {...field}
                     onChange={(e) => {
-                      // Only allow whole numbers for capacity
-                      const value = e.target.value === '' ? '1' : e.target.value;
-                      // Parse as integer
-                      const numValue = parseInt(value, 10);
-                      if (!isNaN(numValue) && numValue >= 1) {
-                        console.log("Setting capacity to:", numValue);
-                        field.onChange(numValue);
+                      // Only validate that it's a valid positive integer, but use exact value
+                      const value = e.target.value;
+                      if (value === '' || isNaN(parseInt(value, 10)) || parseInt(value, 10) < 1) {
+                        field.onChange(1);
                       } else {
-                        console.log("Invalid capacity, defaulting to 1");
-                        field.onChange(1);
+                        // Use the exact integer value entered
+                        field.onChange(parseInt(value, 10));
                       }
                     }}
-                    onBlur={(e) => {
-                      // Ensure on blur that we have a valid positive integer
-                      const value = parseInt(String(field.value), 10);
-                      if (isNaN(value) || value < 1) {
-                        field.onChange(1);
-                      }
-                    }}
+                    onBlur={field.onBlur} // Don't do any special processing on blur
                     value={field.value ?? ''}
                     min="1"
                     step="1"

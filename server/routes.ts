@@ -180,33 +180,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       bodyToValidate.images = [];
     }
     
-    // Convert price and capacity to numbers if they're strings
-    if (bodyToValidate.price !== undefined && typeof bodyToValidate.price === 'string') {
-      // For price, use parseFloat to handle decimal values properly
-      bodyToValidate.price = parseFloat(bodyToValidate.price);
-      // Ensure it's a valid number with 2 decimal places max
-      if (isNaN(bodyToValidate.price)) {
-        bodyToValidate.price = 0;
+    // Convert price and capacity to numbers if they're strings - PRESERVE EXACT VALUES
+    if (bodyToValidate.price !== undefined) {
+      let priceValue;
+      
+      if (typeof bodyToValidate.price === 'string') {
+        // For price, use parseFloat to handle decimal values properly
+        priceValue = parseFloat(bodyToValidate.price);
+        if (isNaN(priceValue)) {
+          priceValue = 0;
+        }
+      } else if (typeof bodyToValidate.price === 'number') {
+        // If already a number, use it directly
+        priceValue = bodyToValidate.price;
       } else {
-        // Round to 2 decimal places to ensure consistency
-        bodyToValidate.price = Math.round(bodyToValidate.price * 100) / 100;
+        priceValue = 0;
       }
-      log(`Price converted to: ${bodyToValidate.price}`, "routes");
+      
+      // Do not round the price - preserve exact value
+      bodyToValidate.price = priceValue;
+      log(`Price set to: ${bodyToValidate.price}`, "routes");
     }
     
-    if (bodyToValidate.capacity !== undefined && typeof bodyToValidate.capacity === 'string') {
-      // For capacity, parse integer and ensure a valid value
-      const rawValue = bodyToValidate.capacity.trim();
-      const capacityValue = parseInt(rawValue, 10);
-      log(`Converting capacity from "${rawValue}" to ${capacityValue}`, "routes");
+    if (bodyToValidate.capacity !== undefined) {
+      let capacityValue;
       
-      // Always ensure capacity is a valid positive integer
-      if (isNaN(capacityValue) || capacityValue < 1) {
-        bodyToValidate.capacity = 1;
-        log(`Invalid capacity value, defaulting to 1`, "routes");
+      if (typeof bodyToValidate.capacity === 'string') {
+        const rawValue = bodyToValidate.capacity.trim();
+        capacityValue = parseInt(rawValue, 10);
+        log(`Converting capacity from "${rawValue}" to ${capacityValue}`, "routes");
+      } else if (typeof bodyToValidate.capacity === 'number') {
+        // If already a number, use it directly
+        capacityValue = bodyToValidate.capacity;
       } else {
-        bodyToValidate.capacity = capacityValue;
+        capacityValue = 1;
       }
+      
+      // Only validate that it's a valid positive integer
+      if (isNaN(capacityValue) || capacityValue < 1) {
+        capacityValue = 1;
+        log(`Invalid capacity value, defaulting to 1`, "routes");
+      }
+      
+      bodyToValidate.capacity = capacityValue;
     }
     
     // Convert needsWaiver from string to boolean if needed
