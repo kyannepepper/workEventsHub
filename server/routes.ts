@@ -75,12 +75,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Process the data before validation to ensure proper formats
       let bodyToValidate = { 
         ...req.body,
-        price: parseInt(req.body.price),
-        capacity: parseInt(req.body.capacity),
+        price: req.body.price ? parseFloat(req.body.price) : 0,
+        capacity: req.body.capacity ? parseInt(req.body.capacity, 10) : 1,
         startTime: new Date(req.body.startTime),
         endTime: new Date(req.body.endTime),
         images: [] as string[],
       };
+      
+      // Ensure values are valid numbers
+      if (isNaN(bodyToValidate.price)) bodyToValidate.price = 0;
+      if (isNaN(bodyToValidate.capacity) || bodyToValidate.capacity < 1) bodyToValidate.capacity = 1;
+      
+      log(`Processing event with price: ${bodyToValidate.price}, capacity: ${bodyToValidate.capacity}`, "routes");
       
       // Convert needsWaiver from string to boolean if needed
       if (bodyToValidate.needsWaiver !== undefined) {
