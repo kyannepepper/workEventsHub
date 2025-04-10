@@ -184,18 +184,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (bodyToValidate.price !== undefined && typeof bodyToValidate.price === 'string') {
       // For price, use parseFloat to handle decimal values properly
       bodyToValidate.price = parseFloat(bodyToValidate.price);
-      // Ensure it's a valid number
+      // Ensure it's a valid number with 2 decimal places max
       if (isNaN(bodyToValidate.price)) {
         bodyToValidate.price = 0;
+      } else {
+        // Round to 2 decimal places to ensure consistency
+        bodyToValidate.price = Math.round(bodyToValidate.price * 100) / 100;
       }
+      log(`Price converted to: ${bodyToValidate.price}`, "routes");
     }
     
     if (bodyToValidate.capacity !== undefined && typeof bodyToValidate.capacity === 'string') {
-      // For capacity, use parseInt but ensure we don't lose the value
-      const capacityValue = parseInt(bodyToValidate.capacity, 10);
-      bodyToValidate.capacity = !isNaN(capacityValue) ? capacityValue : 1;
-      // Log the capacity conversion for debugging
-      log(`Converting capacity from ${bodyToValidate.capacity} to ${capacityValue}`, "routes");
+      // For capacity, parse integer and ensure a valid value
+      const rawValue = bodyToValidate.capacity.trim();
+      const capacityValue = parseInt(rawValue, 10);
+      log(`Converting capacity from "${rawValue}" to ${capacityValue}`, "routes");
+      
+      // Always ensure capacity is a valid positive integer
+      if (isNaN(capacityValue) || capacityValue < 1) {
+        bodyToValidate.capacity = 1;
+        log(`Invalid capacity value, defaulting to 1`, "routes");
+      } else {
+        bodyToValidate.capacity = capacityValue;
+      }
     }
     
     // Convert needsWaiver from string to boolean if needed

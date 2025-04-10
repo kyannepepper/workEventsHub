@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, boolean, decimal } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -19,7 +19,7 @@ export const events = pgTable("events", {
   startTime: timestamp("start_time").notNull(),
   endTime: timestamp("end_time").notNull(),
   location: text("location").notNull(),
-  price: integer("price").default(0),
+  price: decimal("price", { precision: 10, scale: 2 }).default('0'),
   capacity: integer("capacity").notNull(),
   spotsLeft: integer("spots_left").notNull(),
   waiver: text("waiver"),
@@ -59,9 +59,9 @@ export const insertEventSchema = createInsertSchema(events)
       "Government",
       "Other"
     ]),
-    // Make these strict integer fields without any coercion
-    price: z.number().int(),
-    capacity: z.number().int(),
+    // Allow decimal prices but keep capacity as integer
+    price: z.number().nonnegative().multipleOf(0.01),
+    capacity: z.number().int().positive(),
   })
   .omit({
     id: true,
