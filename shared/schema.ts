@@ -59,9 +59,13 @@ export const insertEventSchema = createInsertSchema(events)
       "Government",
       "Other"
     ]),
-    // Allow decimal prices with any precision
-    price: z.number().nonnegative(),
-    capacity: z.number().int().positive(),
+    // Accept string or number for price and capacity
+    price: z.union([z.string(), z.number()]).transform(val => 
+      typeof val === 'string' ? parseFloat(val) : val
+    ),
+    capacity: z.union([z.string(), z.number()]).transform(val => 
+      typeof val === 'string' ? parseInt(val, 10) : val
+    ),
   })
   .omit({
     id: true,

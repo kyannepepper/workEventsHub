@@ -293,16 +293,19 @@ export default function EventForm({
                     type="number"
                     {...field}
                     onChange={(e) => {
-                      // Only validate that it's a number, but use exact value
+                      // Accept the value as a string to preserve exact input including decimals
                       const value = e.target.value;
-                      if (value === '' || isNaN(parseFloat(value))) {
-                        field.onChange(0);
-                      } else {
-                        // Use the exact value entered, don't round
-                        field.onChange(parseFloat(value));
+                      field.onChange(value);
+                    }}
+                    onBlur={(e) => {
+                      // Validate on blur that we have a number or valid numeric string
+                      const value = String(field.value || ''); // Convert to string safely
+                      const numValue = parseFloat(value);
+                      
+                      if (isNaN(numValue) || numValue < 0) {
+                        field.onChange("0");
                       }
                     }}
-                    onBlur={field.onBlur} // Don't do any special processing on blur
                     value={field.value ?? ''}
                     min="0"
                     step="0.01"
@@ -324,16 +327,19 @@ export default function EventForm({
                     type="number"
                     {...field}
                     onChange={(e) => {
-                      // Only validate that it's a valid positive integer, but use exact value
+                      // Accept the value as a string to preserve exact input
                       const value = e.target.value;
-                      if (value === '' || isNaN(parseInt(value, 10)) || parseInt(value, 10) < 1) {
-                        field.onChange(1);
-                      } else {
-                        // Use the exact integer value entered
-                        field.onChange(parseInt(value, 10));
+                      field.onChange(value);
+                    }}
+                    onBlur={(e) => {
+                      // Validate on blur that we have a positive integer
+                      const value = String(field.value || ''); // Convert to string safely
+                      const numValue = parseInt(value, 10);
+                      
+                      if (isNaN(numValue) || numValue < 1) {
+                        field.onChange("1");
                       }
                     }}
-                    onBlur={field.onBlur} // Don't do any special processing on blur
                     value={field.value ?? ''}
                     min="1"
                     step="1"
