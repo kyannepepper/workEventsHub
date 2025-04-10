@@ -309,6 +309,7 @@ export default function EventForm({
                     value={field.value ?? ''}
                     min="0"
                     step="0.01"
+                    onWheel={(e) => e.currentTarget.blur()} // Prevent scroll wheel from changing value
                   />
                 </FormControl>
                 <FormMessage />
@@ -343,6 +344,7 @@ export default function EventForm({
                     value={field.value ?? ''}
                     min="1"
                     step="1"
+                    onWheel={(e) => e.currentTarget.blur()} // Prevent scroll wheel from changing value
                   />
                 </FormControl>
                 <FormMessage />
