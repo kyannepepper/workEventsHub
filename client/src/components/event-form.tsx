@@ -47,6 +47,8 @@ export default function EventForm({
   });
 
   const handleSubmit = (data: InsertEvent) => {
+    console.log("Form data before submission:", data); // Debug log
+    
     const formData = new FormData();
 
     Object.entries(data).forEach(([key, value]) => {
@@ -56,7 +58,13 @@ export default function EventForm({
         } else if (Array.isArray(value)) {
           value.forEach(item => formData.append(key, item));
         } else if (value !== undefined && value !== null) {
-          formData.append(key, String(value));
+          // Ensure numeric values are preserved exactly as they are
+          if (key === 'capacity' || key === 'price') {
+            console.log(`Setting ${key} to:`, value);
+            formData.append(key, value.toString());
+          } else {
+            formData.append(key, String(value));
+          }
         }
       }
     });
@@ -285,11 +293,13 @@ export default function EventForm({
                     {...field}
                     onChange={(e) => {
                       const value = e.target.value === '' ? '0' : e.target.value;
-                      field.onChange(Number(value));
+                      const numValue = Number(value);
+                      console.log("Price changed to:", numValue);
+                      field.onChange(numValue);
                     }}
                     value={field.value ?? ''}
                     min="0"
-                    step="1"
+                    step="0.01" // Changed to allow decimal values
                   />
                 </FormControl>
                 <FormMessage />
@@ -309,7 +319,9 @@ export default function EventForm({
                     {...field}
                     onChange={(e) => {
                       const value = e.target.value === '' ? '1' : e.target.value;
-                      field.onChange(Number(value));
+                      const numValue = Number(value);
+                      console.log("Capacity changed to:", numValue);
+                      field.onChange(numValue);
                     }}
                     value={field.value ?? ''}
                     min="1"
