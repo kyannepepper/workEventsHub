@@ -175,12 +175,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     // Convert price and capacity to numbers if they're strings
-    if (bodyToValidate.price && typeof bodyToValidate.price === 'string') {
-      bodyToValidate.price = parseInt(bodyToValidate.price, 10);
+    if (bodyToValidate.price !== undefined && typeof bodyToValidate.price === 'string') {
+      // For price, use parseFloat to handle decimal values properly
+      bodyToValidate.price = parseFloat(bodyToValidate.price);
+      // Ensure it's a valid number
+      if (isNaN(bodyToValidate.price)) {
+        bodyToValidate.price = 0;
+      }
     }
     
-    if (bodyToValidate.capacity && typeof bodyToValidate.capacity === 'string') {
-      bodyToValidate.capacity = parseInt(bodyToValidate.capacity, 10);
+    if (bodyToValidate.capacity !== undefined && typeof bodyToValidate.capacity === 'string') {
+      // For capacity, use parseInt but ensure we don't lose the value
+      const capacityValue = parseInt(bodyToValidate.capacity, 10);
+      bodyToValidate.capacity = !isNaN(capacityValue) ? capacityValue : 1;
+      // Log the capacity conversion for debugging
+      log(`Converting capacity from ${bodyToValidate.capacity} to ${capacityValue}`, "routes");
     }
     
     // Convert needsWaiver from string to boolean if needed

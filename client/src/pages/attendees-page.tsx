@@ -514,7 +514,7 @@ export default function AttendeesPage() {
                                   const attendees =
                                     parseParticipants(registration);
                                   const nonPrimaryAttendees = attendees.filter(
-                                    (attendee) => !attendee.isPrimary,
+                                    (attendee) => !JSON.parse(attendee).isPrimary,
                                   );
 
                                   if (nonPrimaryAttendees.length > 0) {
