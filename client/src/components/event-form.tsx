@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { InsertEvent, insertEventSchema } from "@shared/schema";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -286,7 +286,7 @@ export default function EventForm({
             name="price"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Price (USD)</FormLabel>
+                <FormLabel>Price (USD) (supports decimals, e.g. 31.99)</FormLabel>
                 <FormControl>
                   <Input
                     type="number"
@@ -312,7 +312,7 @@ export default function EventForm({
             name="capacity"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Capacity</FormLabel>
+                <FormLabel>Capacity (whole numbers only)</FormLabel>
                 <FormControl>
                   <Input
                     type="number"
